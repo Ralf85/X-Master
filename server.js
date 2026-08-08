@@ -3,10 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 
-const healthRoutes = require('./routes/health');
-const playerRoutes = require('./routes/players');
-const adminRoutes = require('./routes/admin');
-const { errorHandler } = require('./middleware/errorHandler');
+const healthRoutes = require('./health');
+const playerRoutes = require('./players');
+const adminRoutes = require('./admin');
+const { errorHandler } = require('./errorHandler');
 
 const app = express();
 

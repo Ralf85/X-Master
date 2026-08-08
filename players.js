@@ -1,9 +1,9 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const pool = require('../db');
-const playerAuth = require('../middleware/playerAuth');
-const { asyncHandler } = require('../middleware/errorHandler');
-const { isValidPinFormat, hashPin, comparePin, generateRecoveryCode } = require('../utils/pin');
+const pool = require('./db');
+const playerAuth = require('./playerAuth');
+const { asyncHandler } = require('./errorHandler');
+const { isValidPinFormat, hashPin, comparePin, generateRecoveryCode } = require('./pin');
 
 const router = express.Router();
 

@@ -1,9 +1,9 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const pool = require('../db');
-const { adminAuth } = require('../middleware/adminAuth');
-const { asyncHandler } = require('../middleware/errorHandler');
+const pool = require('./db');
+const { adminAuth } = require('./adminAuth');
+const { asyncHandler } = require('./errorHandler');
 
 const router = express.Router();
 

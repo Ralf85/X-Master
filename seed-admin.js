@@ -2,7 +2,7 @@
 // Käivita: npm run seed-admin
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const pool = require('../src/db');
+const pool = require('./db');
 
 async function main() {
     const email = process.env.ADMIN_EMAIL;
