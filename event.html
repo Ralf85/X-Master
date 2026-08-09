@@ -29,6 +29,13 @@
   .status-pill.confirmed { background: rgba(79,191,130,0.25); color: var(--birdie); }
   .reg-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
   .reg-row:last-child { border-bottom: none; }
+  .division-group { border-bottom: 1px solid var(--line); }
+  .division-group:last-child { border-bottom: none; }
+  .division-header { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; cursor: pointer; }
+  .division-header .label { font-family: var(--font-display); font-weight: 600; font-size: 13.5px; }
+  .division-header .chevron { color: var(--ink-faint); font-size: 12px; transition: transform 0.15s; }
+  .division-body { display: none; padding-bottom: 8px; }
+  .division-body .reg-row { padding-left: 8px; border-bottom: none; }
   .empty-note { color: var(--ink-faint); font-size: 13px; }
   .btn { background: var(--accent); color: #1a0e08; border: none; font-family: var(--font-display); font-weight: 700; font-size: 12.5px; padding: 9px 15px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
   .btn.secondary { background: var(--bg-panel-2); color: var(--ink); border: 1px solid var(--line); }
@@ -76,7 +83,29 @@ async function load() {
   render();
 }
 
+function groupByDivision(regs) {
+  const map = {};
+  for (const r of regs) {
+    const key = r.division_name || 'Muu';
+    if (!map[key]) map[key] = [];
+    map[key].push(r);
+  }
+  return map;
+}
+
 function render() {
+  const divGroups = groupByDivision(state.registrations);
+  const divisionsHtml = Object.entries(divGroups).map(([divName, regs], idx) => `
+    <div class="division-group">
+      <div class="division-header" data-toggle-div="d${idx}">
+        <span class="label">${divName} (${regs.length})</span>
+        <span class="chevron" id="chev-d${idx}">▾</span>
+      </div>
+      <div class="division-body" id="divBody-d${idx}">
+        ${regs.map((r) => `<div class="reg-row"><span>${r.first_name} ${r.last_name}</span><span class="status-pill ${r.status}">${r.status}</span></div>`).join('')}
+      </div>
+    </div>`).join('');
+
   app.innerHTML = `
     <a class="back-link" href="/dashboard">← Minu konto</a>
     <h1>${state.event.name}</h1>
@@ -90,13 +119,30 @@ function render() {
 
     <h2>Registreerunud mängijad (${state.registrations.length})</h2>
     <div class="card">
-      ${state.registrations.length === 0 ? '<div class="empty-note">Registreerumisi pole veel.</div>' :
-        state.registrations.map((r) => `<div class="reg-row"><span>${r.first_name} ${r.last_name} · ${r.division_name}</span><span class="status-pill ${r.status}">${r.status}</span></div>`).join('')}
+      ${state.registrations.length === 0 ? '<div class="empty-note">Registreerumisi pole veel.</div>' : divisionsHtml}
     </div>
 
     ${token ? state.rounds.map(renderRoundPools).join('') : ''}
   `;
 
+  document.querySelectorAll('[data-toggle-div]').forEach((el) => {
+    el.onclick = () => {
+      const id = el.dataset.toggleDiv;
+      const body = document.getElementById(`divBody-${id}`);
+      const chev = document.getElementById(`chev-${id}`);
+      const isHidden = body.style.display !== 'block';
+      body.style.display = isHidden ? 'block' : 'none';
+      chev.textContent = isHidden ? '▴' : '▾';
+    };
+  });
+  document.querySelectorAll('[data-toggle-pools]').forEach((btn) => {
+    btn.onclick = () => {
+      const body = document.getElementById(`poolsBody-${btn.dataset.togglePools}`);
+      const isHidden = body.style.display !== 'block';
+      body.style.display = isHidden ? 'block' : 'none';
+      btn.textContent = (isHidden ? 'Peida grupid ' : 'Näita gruppe ') + btn.dataset.count;
+    };
+  });
   document.querySelectorAll('[data-join]').forEach((btn) => btn.onclick = () => joinPool(btn.dataset.join, btn.dataset.round));
   document.querySelectorAll('[data-leave]').forEach((btn) => btn.onclick = () => leavePool(btn.dataset.leave, btn.dataset.round));
 }
@@ -108,13 +154,18 @@ function renderRoundPools(round) {
   }
   const myPoolId = poolData.myPoolId;
   const isRegistered = !!state.myRegistration;
+  const totalPlayers = poolData.pools.reduce((sum, p) => sum + p.players.length, 0);
+  const countLabel = `(${poolData.pools.length} pooli, ${totalPlayers} mängijat)`;
 
   return `
     <h2>${round.name || 'Round ' + round.round_number} — Poolid</h2>
     <div class="card">
       ${myPoolId ? `<a href="/scorecard?pool=${myPoolId}" class="btn full">▶ Ava minu scorecard</a>` : ''}
       ${!isRegistered ? `<div class="empty-note" style="margin-bottom:10px;">Registreeru, et endale pool valida.</div>` : ''}
-      <div style="margin-top:${myPoolId ? '14px' : '0'};">
+      <button class="btn secondary full" data-toggle-pools="${round.id}" data-count="${countLabel}" style="margin-top:${myPoolId ? '10px' : '0'};">
+        Näita gruppe ${countLabel}
+      </button>
+      <div id="poolsBody-${round.id}" style="display:none; margin-top:14px;">
         ${poolData.pools.map((p) => `
           <div class="pool-box ${p.id === myPoolId ? 'mine' : ''}">
             <div class="pool-head">
