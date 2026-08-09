@@ -104,33 +104,42 @@ async function loadEvents() {
 function renderEvents() {
   app.innerHTML = `
     <div class="topbar"><h1>Võistlused</h1><div class="logout-link" id="logoutBtn">Logi välja</div></div>
-    <div class="nav-links" style="display:flex; gap:16px; margin-bottom:18px;">
+    <div class="nav-links" style="display:flex; align-items:center; gap:16px; margin-bottom:18px;">
       <a href="/admin" style="color:var(--accent); text-decoration:none; font-size:13px; font-family:var(--font-display); font-weight:600;">Võistlused</a>
       <a href="/admin-users" style="color:var(--ink-dim); text-decoration:none; font-size:13px; font-family:var(--font-display); font-weight:600;">Kasutajad</a>
+      <button id="toggleCreateBtn" class="btn small" style="margin-left:auto;">+ Loo võistlus</button>
     </div>
 
     <div class="card">
       ${state.events.length === 0 ? '<div class="empty-note">Ühtegi võistlust pole veel loodud.</div>' : state.events.map(eventRow).join('')}
     </div>
 
-    <h2>Loo uus võistlus</h2>
-    <div class="card">
-      <label>Nimi</label>
-      <input id="newName" placeholder="Tallinn Open 2027">
-      <label>Slug (URL, genereeritakse automaatselt)</label>
-      <input id="newSlug" placeholder="tallinn-open-2027">
-      <label>Asukoht</label>
-      <input id="newLocation" placeholder="Tallinn">
-      <div class="row2">
-        <div><label>Algus</label><input id="newStart" type="date"></div>
-        <div><label>Lõpp</label><input id="newEnd" type="date"></div>
+    <div id="createEventSection" style="display:none;">
+      <h2>Loo uus võistlus</h2>
+      <div class="card">
+        <label>Nimi</label>
+        <input id="newName" placeholder="Tallinn Open 2027">
+        <label>Slug (URL, genereeritakse automaatselt)</label>
+        <input id="newSlug" placeholder="tallinn-open-2027">
+        <label>Asukoht</label>
+        <input id="newLocation" placeholder="Tallinn">
+        <div class="row2">
+          <div><label>Algus</label><input id="newStart" type="date"></div>
+          <div><label>Lõpp</label><input id="newEnd" type="date"></div>
+        </div>
+        <button class="btn full" id="createBtn">Loo võistlus</button>
+        <div class="error-msg" id="createError"></div>
       </div>
-      <button class="btn full" id="createBtn">Loo võistlus</button>
-      <div class="error-msg" id="createError"></div>
     </div>
   `;
   document.getElementById('logoutBtn').onclick = logout;
   document.getElementById('createBtn').onclick = createEvent;
+  document.getElementById('toggleCreateBtn').onclick = () => {
+    const section = document.getElementById('createEventSection');
+    const isHidden = section.style.display === 'none';
+    section.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) document.getElementById('newName').focus();
+  };
   document.getElementById('newName').addEventListener('input', (e) => {
     document.getElementById('newSlug').value = slugify(e.target.value);
   });
