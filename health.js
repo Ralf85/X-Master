@@ -9,7 +9,17 @@ router.get('/', async (req, res) => {
         res.json({ status: 'ok', database: 'connected' });
     } catch (err) {
         console.error('Health check andmebaasi viga:', err);
-        res.status(500).json({ status: 'error', database: 'disconnected', detail: err.message });
+        const nested = Array.isArray(err.errors)
+            ? err.errors.map((e) => e.message || e.code || String(e))
+            : undefined;
+        res.status(500).json({
+            status: 'error',
+            database: 'disconnected',
+            detail: err.message || null,
+            code: err.code || null,
+            nested: nested || null,
+            hasConnectionString: Boolean(process.env.DATABASE_URL),
+        });
     }
 });
 

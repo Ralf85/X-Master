@@ -6,6 +6,10 @@ const helmet = require('helmet');
 const healthRoutes = require('./health');
 const playerRoutes = require('./players');
 const adminRoutes = require('./admin');
+const eventRoutes = require('./events');
+const adminEventRoutes = require('./adminEvents');
+const registrationRoutes = require('./registrations');
+const adminRegistrationRoutes = require('./adminRegistrations');
 const { errorHandler } = require('./errorHandler');
 
 const app = express();
@@ -21,6 +25,10 @@ app.get('/', (req, res) => {
 app.use('/api/health', healthRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/admin/events', adminEventRoutes);
+app.use('/api/registrations', registrationRoutes);
+app.use('/api/admin/registrations', adminRegistrationRoutes);
 
 // 404 käsitleja - peab tulema pärast kõiki route'e
 app.use((req, res) => {
