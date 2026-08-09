@@ -1,0 +1,176 @@
+const express = require('express');
+const pool = require('./db');
+const { adminAuth } = require('./adminAuth');
+const { asyncHandler } = require('./errorHandler');
+
+const router = express.Router();
+router.use(adminAuth);
+
+// ---------------------------------------------------------------------------
+// EVENTS (punktid 48-49)
+// ---------------------------------------------------------------------------
+router.post('/', asyncHandler(async (req, res) => {
+    const { name, slug, location, startDate, endDate, registrationStart,
+            registrationEnd, registrationLimit, logoUrl, brandingTheme } = req.body;
+
+    if (!name || !slug || !startDate || !endDate) {
+        return res.status(400).json({ error: 'name, slug, startDate ja endDate on kohustuslikud.' });
+    }
+
+    const { rows } = await pool.query(
+        `INSERT INTO events
+            (name, slug, location, start_date, end_date, registration_start,
+             registration_end, registration_limit, logo_url, branding_theme, organizer_admin_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         RETURNING *`,
+        [name, slug, location || null, startDate, endDate, registrationStart || null,
+         registrationEnd || null, registrationLimit || null, logoUrl || null,
+         JSON.stringify(brandingTheme || {}), req.admin.id]
+    );
+    res.status(201).json({ event: rows[0] });
+}));
+
+router.get('/', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query('SELECT * FROM events ORDER BY start_date DESC');
+    res.json({ events: rows });
+}));
+
+router.get('/:id', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query('SELECT * FROM events WHERE id = $1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Võistlust ei leitud.' });
+
+    const [divisions, parks, rounds] = await Promise.all([
+        pool.query('SELECT * FROM divisions WHERE event_id = $1 ORDER BY sort_order', [req.params.id]),
+        pool.query('SELECT * FROM parks WHERE event_id = $1 ORDER BY sort_order', [req.params.id]),
+        pool.query('SELECT * FROM rounds WHERE event_id = $1 ORDER BY round_number', [req.params.id]),
+    ]);
+
+    res.json({ event: rows[0], divisions: divisions.rows, parks: parks.rows, rounds: rounds.rows });
+}));
+
+router.patch('/:id', asyncHandler(async (req, res) => {
+    const { name, location, startDate, endDate, registrationStart, registrationEnd,
+            registrationLimit, logoUrl, brandingTheme, status } = req.body;
+
+    const validStatuses = ['draft', 'registration_open', 'registration_closed', 'live', 'finished', 'archived'];
+    if (status && !validStatuses.includes(status)) {
+        return res.status(400).json({ error: `status peab olema \u00fcks: ${validStatuses.join(', ')}` });
+    }
+
+    const { rows } = await pool.query(
+        `UPDATE events SET
+            name = COALESCE($1, name),
+            location = COALESCE($2, location),
+            start_date = COALESCE($3, start_date),
+            end_date = COALESCE($4, end_date),
+            registration_start = COALESCE($5, registration_start),
+            registration_end = COALESCE($6, registration_end),
+            registration_limit = COALESCE($7, registration_limit),
+            logo_url = COALESCE($8, logo_url),
+            branding_theme = COALESCE($9, branding_theme),
+            status = COALESCE($10, status)
+         WHERE id = $11
+         RETURNING *`,
+        [name, location, startDate, endDate, registrationStart, registrationEnd,
+         registrationLimit, logoUrl, brandingTheme ? JSON.stringify(brandingTheme) : null,
+         status, req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Võistlust ei leitud.' });
+    res.json({ event: rows[0] });
+}));
+
+// ---------------------------------------------------------------------------
+// DIVISIONS (punkt 50)
+// ---------------------------------------------------------------------------
+router.post('/:id/divisions', asyncHandler(async (req, res) => {
+    const { name, sortOrder } = req.body;
+    if (!name) return res.status(400).json({ error: 'name on kohustuslik.' });
+
+    const { rows } = await pool.query(
+        `INSERT INTO divisions (event_id, name, sort_order) VALUES ($1, $2, $3) RETURNING *`,
+        [req.params.id, name, sortOrder || 0]
+    );
+    res.status(201).json({ division: rows[0] });
+}));
+
+router.delete('/divisions/:divisionId', asyncHandler(async (req, res) => {
+    await pool.query('DELETE FROM divisions WHERE id = $1', [req.params.divisionId]);
+    res.json({ message: 'Divisjon kustutatud.' });
+}));
+
+// ---------------------------------------------------------------------------
+// PARKS / SECTORS (punkt 51)
+// ---------------------------------------------------------------------------
+router.post('/:id/parks', asyncHandler(async (req, res) => {
+    const { name, color, icon, sponsor, sortOrder } = req.body;
+    if (!name) return res.status(400).json({ error: 'name on kohustuslik.' });
+
+    const { rows } = await pool.query(
+        `INSERT INTO parks (event_id, name, color, icon, sponsor, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [req.params.id, name, color || null, icon || null, sponsor || null, sortOrder || 0]
+    );
+    res.status(201).json({ park: rows[0] });
+}));
+
+router.delete('/parks/:parkId', asyncHandler(async (req, res) => {
+    await pool.query('DELETE FROM parks WHERE id = $1', [req.params.parkId]);
+    res.json({ message: 'Park kustutatud.' });
+}));
+
+// ---------------------------------------------------------------------------
+// ROUNDS
+// ---------------------------------------------------------------------------
+router.post('/:id/rounds', asyncHandler(async (req, res) => {
+    const { roundNumber, name, roundDate } = req.body;
+    if (!roundNumber) return res.status(400).json({ error: 'roundNumber on kohustuslik.' });
+
+    const { rows } = await pool.query(
+        `INSERT INTO rounds (event_id, round_number, name, round_date)
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [req.params.id, roundNumber, name || `Round ${roundNumber}`, roundDate || null]
+    );
+    res.status(201).json({ round: rows[0] });
+}));
+
+// ---------------------------------------------------------------------------
+// HOLES (punkt 52) - massiline lisamine korraga
+// ---------------------------------------------------------------------------
+router.post('/rounds/:roundId/holes', asyncHandler(async (req, res) => {
+    const { holes } = req.body; // [{ holeNumber, par, lengthMeters, parkId, sortOrder }, ...]
+    if (!Array.isArray(holes) || holes.length === 0) {
+        return res.status(400).json({ error: 'holes peab olema mittetühi massiiv.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const inserted = [];
+        for (const h of holes) {
+            const { rows } = await client.query(
+                `INSERT INTO holes (round_id, park_id, hole_number, par, length_meters, sort_order)
+                 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+                [req.params.roundId, h.parkId || null, h.holeNumber, h.par || 3,
+                 h.lengthMeters || null, h.sortOrder ?? h.holeNumber]
+            );
+            inserted.push(rows[0]);
+        }
+        await client.query('COMMIT');
+        res.status(201).json({ holes: inserted });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}));
+
+router.get('/rounds/:roundId/holes', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+        'SELECT * FROM holes WHERE round_id = $1 ORDER BY sort_order',
+        [req.params.roundId]
+    );
+    res.json({ holes: rows });
+}));
+
+module.exports = router;
