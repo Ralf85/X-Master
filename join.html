@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liitu võistlusega</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #0a1512; --bg-panel: #0f1e1a; --bg-panel-2: #142c25;
+    --ink: #eaf2ee; --ink-dim: #7fa396; --ink-faint: #4d6a60;
+    --line: rgba(234, 242, 238, 0.09); --accent: #ff6b35;
+    --birdie: #4fbf82;
+    --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-deep);
+    background-image: radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255,107,53,0.08), transparent),
+                       radial-gradient(ellipse 700px 500px at 100% 0%, rgba(79,191,130,0.06), transparent);
+    color: var(--ink); font-family: var(--font-body); min-height: 100vh; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 40px 20px 60px; }
+  .eyebrow { font-family: var(--font-display); font-weight: 600; font-size: 12px; letter-spacing: 0.14em; color: var(--accent); text-transform: uppercase; margin-bottom: 10px; }
+  h1 { font-family: var(--font-display); font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-dim); font-size: 14.5px; margin: 0 0 32px; }
+  .steps { list-style: none; padding: 0; margin: 0 0 28px; }
+  .step { display: flex; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--bg-panel-2);
+    border: 1px solid var(--line); display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--accent); flex-shrink: 0;
+  }
+  .step-title { font-family: var(--font-display); font-weight: 600; font-size: 15px; }
+  .step-desc { color: var(--ink-dim); font-size: 13px; margin-top: 2px; }
+  .btn {
+    display: block; width: 100%; text-align: center; text-decoration: none;
+    background: var(--accent); color: #1a0e08; font-family: var(--font-display);
+    font-weight: 700; font-size: 15px; padding: 15px; border-radius: 12px;
+  }
+  .btn:active { transform: scale(0.98); }
+  .secondary-link { display: block; text-align: center; margin-top: 16px; color: var(--ink-faint); font-size: 12.5px; text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Discgolf X-Sarja</div>
+  <h1 id="title">Tere tulemast!</h1>
+  <p class="sub" id="subtitle">Mõne sammuga oled valmis kaasa mängima.</p>
+
+  <ul class="steps">
+    <li class="step">
+      <div class="step-num">1</div>
+      <div><div class="step-title">Tee endale konto</div><div class="step-desc">Vajad ainult nime ja PIN-koodi. Konto jääb alles ka järgmisteks võistlusteks.</div></div>
+    </li>
+    <li class="step">
+      <div class="step-num">2</div>
+      <div><div class="step-title">Registreeru võistlusele</div><div class="step-desc">Vali oma divisjon ja kinnita PIN-iga.</div></div>
+    </li>
+    <li class="step">
+      <div class="step-num">3</div>
+      <div><div class="step-title">Vali endale pool</div><div class="step-desc">Näed kõiki poole ja kes kus mängib.</div></div>
+    </li>
+    <li class="step">
+      <div class="step-num">4</div>
+      <div><div class="step-title">Ava scorecard ja alusta</div><div class="step-desc">Kui start käes, märgid tulemusi otse telefonist.</div></div>
+    </li>
+  </ul>
+
+  <a href="/dashboard" class="btn" id="ctaBtn">Alusta →</a>
+  <a href="/leaderboard" class="secondary-link" id="leaderboardLink">Vaata live-tulemusi ilma kontota</a>
+</div>
+<script>
+const params = new URLSearchParams(location.search);
+const slug = params.get('event');
+if (slug) {
+  fetch(`/api/events/${slug}`).then((r) => r.ok ? r.json() : null).then((data) => {
+    if (!data) return;
+    document.getElementById('title').textContent = data.event.name;
+    document.getElementById('subtitle').textContent = 'Sind kutsuti liituma selle võistlusega. Mõne sammuga oled valmis kaasa mängima.';
+    document.getElementById('leaderboardLink').href = `/leaderboard?event=${slug}`;
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>

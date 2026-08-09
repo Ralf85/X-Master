@@ -5,10 +5,33 @@ const { asyncHandler } = require('./errorHandler');
 const router = express.Router();
 
 // ---------------------------------------------------------------------------
+// GET /api/leaderboard/event/:slug
+// Mugavam jagatav link (nt Vanalinna Open leaderboard) - leiab ise
+// event'i praeguse/viimase ringi, et ei peaks round_id't teadma.
+// ---------------------------------------------------------------------------
+router.get('/event/:slug', asyncHandler(async (req, res) => {
+    const { rows: eventRows } = await pool.query('SELECT id FROM events WHERE slug = $1', [req.params.slug]);
+    if (!eventRows[0]) return res.status(404).json({ error: 'Võistlust ei leitud.' });
+
+    const { rows: roundRows } = await pool.query(
+        `SELECT id FROM rounds WHERE event_id = $1
+         ORDER BY (status = 'live') DESC, round_number DESC
+         LIMIT 1`,
+        [eventRows[0].id]
+    );
+    if (!roundRows[0]) return res.status(404).json({ error: 'Sellel võistlusel pole veel ühtegi ringi loodud.' });
+
+    req.params.roundId = roundRows[0].id;
+    return getRoundLeaderboard(req, res);
+}));
+
+// ---------------------------------------------------------------------------
 // GET /api/leaderboard/round/:roundId
 // Punktid 31-33, 38-42: live leaderboard, avalik (ei nõua sisselogimist)
 // ---------------------------------------------------------------------------
-router.get('/round/:roundId', asyncHandler(async (req, res) => {
+router.get('/round/:roundId', asyncHandler(getRoundLeaderboard));
+
+async function getRoundLeaderboard(req, res) {
     const { rows: roundRows } = await pool.query(
         `SELECT r.id, r.round_number, r.name AS round_name, r.status,
                 e.id AS event_id, e.name AS event_name, e.slug
@@ -96,7 +119,7 @@ router.get('/round/:roundId', asyncHandler(async (req, res) => {
         totalPar,
         leaderboard,
     });
-}));
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/leaderboard/round/:roundId/park/:parkId

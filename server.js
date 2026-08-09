@@ -38,6 +38,14 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'join.html'));
+});
+
+app.get('/join', (req, res) => {
+    res.sendFile(path.join(__dirname, 'join.html'));
+});
+
+app.get('/api/status', (req, res) => {
     res.json({ name: 'Disc Golf Scoring System API', status: 'running' });
 });
 

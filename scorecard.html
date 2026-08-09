@@ -212,11 +212,22 @@
 <script>
 const API = '';
 const AVATAR_COLORS = ['#4fbf82', '#f2c94c', '#ff6b35', '#5b9bd5', '#c77dff', '#e8974a'];
+const FUN_AVATARS = ['🦉','🐶','🦊','🐸','🦁','🐼','🐨','🦄','🐙','🦋','🐢','🦩','🐝','🐧','🦔','☀️','🌙','⚡','🌵','🍄'];
 function initials(f, l) { return ((f?.[0]||'') + (l?.[0]||'')).toUpperCase(); }
 function avatarColor(name) {
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) % AVATAR_COLORS.length;
   return AVATAR_COLORS[Math.abs(h)];
+}
+function funAvatarFor(playerId) {
+  return FUN_AVATARS[playerId % FUN_AVATARS.length];
+}
+function avatarHtml(player, sizeStyle) {
+  const color = avatarColor((player.first_name || '') + (player.last_name || ''));
+  if (player.profile_image_url) {
+    return `<img src="${player.profile_image_url}" class="avatar" style="${sizeStyle} object-fit:cover;" alt="">`;
+  }
+  return `<div class="avatar" style="${sizeStyle} background:${color}; font-size:1.1em;">${funAvatarFor(player.player_id)}</div>`;
 }
 
 // Shotgun-start: pool ei pruugi alustada rajast 1. Mäng käib start_hole'ist
@@ -376,12 +387,11 @@ function renderHole() {
     body = `<div class="done-card">✓ Kõik tulemused sisestatud<br><span style="font-size:12px">Vajuta "Järgmine rada"</span></div>`;
   } else {
     const player = state.players[state.playerIdx];
-    const color = avatarColor(player.first_name + player.last_name);
     const buttons = generateButtons(hole.par);
     body = `
       <div class="player-card">
         <div class="avatar-row">
-          <div class="avatar" style="background:${color}">${initials(player.first_name, player.last_name)}</div>
+          ${avatarHtml(player, '')}
           <div>
             <div class="player-name">${player.first_name} ${player.last_name}</div>
             <div class="player-sub">#${player.player_number}</div>

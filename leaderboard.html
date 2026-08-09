@@ -317,8 +317,8 @@
 
 <script>
 const params = new URLSearchParams(location.search);
-const roundId = params.get('round') || '1';
 const AVATAR_COLORS = ['#4fbf82', '#f2c94c', '#ff6b35', '#5b9bd5', '#c77dff', '#e8974a'];
+const FUN_AVATARS = ['🦉','🐶','🦊','🐸','🦁','🐼','🐨','🦄','🐙','🦋','🐢','🦩','🐝','🐧','🦔','☀️','🌙','⚡','🌵','🍄'];
 
 function initials(first, last) {
   return ((first?.[0] || '') + (last?.[0] || '')).toUpperCase();
@@ -327,6 +327,9 @@ function avatarColor(name) {
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) % AVATAR_COLORS.length;
   return AVATAR_COLORS[Math.abs(h)];
+}
+function funAvatarFor(playerId) {
+  return FUN_AVATARS[playerId % FUN_AVATARS.length];
 }
 function scoreBadge(strokes, par, status) {
   const conflictClass = status === 'conflict' ? ' conflict' : '';
@@ -384,11 +387,10 @@ function render(data) {
 
   let body = '';
   data.leaderboard.forEach((p, i) => {
-    const initialsText = initials(p.firstName, p.lastName);
     const color = avatarColor(p.firstName + p.lastName);
     const avatarHtml = p.profileImageUrl
       ? `<img src="${p.profileImageUrl}" class="avatar" style="object-fit:cover;" alt="">`
-      : `<div class="avatar" style="background:${color}">${initialsText}</div>`;
+      : `<div class="avatar" style="background:${color}; font-size:15px;">${funAvatarFor(p.playerId)}</div>`;
     const relClass = p.relativeToPar < 0 ? 'under' : p.relativeToPar > 0 ? 'over' : '';
     body += `<tr>
       <td class="player-td">
@@ -431,12 +433,16 @@ function render(data) {
   `;
 }
 
+const eventSlug = params.get('event');
+const roundId = params.get('round');
+const apiUrl = eventSlug ? `/api/leaderboard/event/${eventSlug}` : `/api/leaderboard/round/${roundId || '1'}`;
+
 async function load() {
   try {
-    const res = await fetch(`/api/leaderboard/round/${roundId}`);
+    const res = await fetch(apiUrl);
     if (!res.ok) {
       document.getElementById('content').innerHTML =
-        `<div class="state-message">Ringi ei leitud (round=${roundId}).</div>`;
+        `<div class="state-message">Võistlust/ringi ei leitud.</div>`;
       return;
     }
     const data = await res.json();
