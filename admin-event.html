@@ -268,15 +268,15 @@ async function renderRounds(el) {
             <td><input type="number" class="editHp" value="${h.par}" style="width:60px;"></td>
             <td><select class="editHpark">${state.parks.map((p) => `<option value="${p.id}" ${p.id===h.park_id?'selected':''}>${p.name}</option>`).join('')}</select></td>
             <td style="white-space:nowrap;">
-              <button class="btn secondary small" data-save-hole="${h.id}">Salvesta</button>
+              <button class="btn secondary small" data-save-hole="${h.id}">Salvesta muudatus</button>
               <span style="cursor:pointer; color:var(--ink-faint); margin-left:6px;" data-delete-hole="${h.id}">✕</span>
             </td>
           </tr>`).join('') || ''}
       </table>
-      <h3 style="margin-top:16px;">Lisa rajad</h3>
+      <h3 style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">➕ Lisa UUED rajad (see ei muuda ülal olevaid)</h3>
       <div id="holeRows"></div>
       <button class="btn secondary small" id="addHoleRow">+ Rida</button>
-      <button class="btn full" id="saveHoles">Salvesta rajad</button>
+      <button class="btn full" id="saveHoles">Lisa need uued rajad</button>
       <div class="error-msg" id="holesError"></div>
     </div>
 
