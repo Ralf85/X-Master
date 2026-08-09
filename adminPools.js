@@ -32,7 +32,8 @@ router.get('/rounds/:roundId', asyncHandler(async (req, res) => {
     );
 
     const { rows: players } = await pool.query(
-        `SELECT pp.pool_id, p.id AS player_id, p.player_number, p.first_name, p.last_name,
+        `SELECT pp.id AS pool_player_id, pp.pool_id, pp.registration_id,
+                p.id AS player_id, p.player_number, p.first_name, p.last_name,
                 p.profile_image_url, r.division_id
          FROM pool_players pp
          JOIN registrations r ON r.id = pp.registration_id

@@ -14,6 +14,7 @@ const adminRegistrationRoutes = require('./adminRegistrations');
 const adminPoolRoutes = require('./adminPools');
 const scoreRoutes = require('./scores');
 const adminScoreRoutes = require('./adminScores');
+const controlCenterRoutes = require('./controlCenter');
 const leaderboardRoutes = require('./leaderboard');
 const playerPoolRoutes = require('./playerPools');
 const { UPLOAD_DIR } = require('./uploadConfig');
@@ -66,6 +67,10 @@ app.get('/admin-event', (req, res) => {
     res.sendFile(path.join(__dirname, 'admin-event.html'));
 });
 
+app.get('/control-center', (req, res) => {
+    res.sendFile(path.join(__dirname, 'control-center.html'));
+});
+
 app.use('/api/health', healthRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/admin', adminRoutes);
@@ -76,6 +81,7 @@ app.use('/api/admin/registrations', adminRegistrationRoutes);
 app.use('/api/admin/pools', adminPoolRoutes);
 app.use('/api/scorecard', scoreRoutes);
 app.use('/api/admin/scores', adminScoreRoutes);
+app.use('/api/admin/control-center', controlCenterRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/pools', playerPoolRoutes);
 

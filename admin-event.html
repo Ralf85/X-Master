@@ -294,15 +294,21 @@ async function renderRounds(el) {
 
     <div class="card">
       <h3>Poolid</h3>
-      ${state.pools.map(poolBlock).join('') || '<div class="empty-note">Poole pole veel loodud.</div>'}
-      <h3 style="margin-top:16px;">Loo uus pool</h3>
       <div class="row3">
-        <input id="poolNum" type="number" placeholder="Pooli number">
-        <input id="poolStartHole" type="number" placeholder="Start hole" value="1">
-        <input id="poolMaxPlayers" type="number" placeholder="Max mängijaid" value="4">
+        <input id="bulkPoolCount" type="number" placeholder="Mitu poolid luua">
+        <input id="bulkPoolMax" type="number" placeholder="Max mängijaid/pool" value="4">
+        <input id="bulkStartHole" type="number" placeholder="Start hole (kõigil)" value="1">
       </div>
-      <label class="checkbox-row"><input type="checkbox" id="poolDoubleVerify"> Topeltmärkimine</label>
-      <button class="btn full" id="createPool">Loo pool</button>
+      <button class="btn full" id="bulkCreatePools" style="margin-top:8px;">Loo poolid korraga</button>
+
+      <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; align-items:flex-start;">
+        <div style="flex:0 0 200px; min-width:180px;">
+          <h3 style="margin:0 0 8px;">Sidumata mängijad</h3>
+          <input id="unassignedSearch" placeholder="Otsi nime...">
+          <div id="unassignedList" data-drop-zone="unassigned" style="min-height:60px; border:1px dashed var(--line); border-radius:8px; padding:8px; margin-top:8px;"></div>
+        </div>
+        <div id="poolGrid" style="flex:1; min-width:240px; display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px;"></div>
+      </div>
     </div>
   `;
 
@@ -310,7 +316,7 @@ async function renderRounds(el) {
   document.getElementById('addHoleRow').onclick = addHoleRow;
   document.getElementById('generateRange').onclick = generateRangeRows;
   document.getElementById('saveHoles').onclick = saveHoles;
-  document.getElementById('createPool').onclick = createPool;
+  document.getElementById('bulkCreatePools').onclick = bulkCreatePools;
   document.querySelectorAll('[data-save-hole]').forEach((btn) => {
     btn.onclick = async () => {
       const row = btn.closest('tr');
@@ -328,35 +334,103 @@ async function renderRounds(el) {
   document.querySelectorAll('[data-delete-hole]').forEach((x) => {
     x.onclick = async () => { await api(`/api/admin/events/holes/${x.dataset.deleteHole}`, { method: 'DELETE' }); renderTab(); };
   });
-  document.querySelectorAll('[data-add-to-pool]').forEach((sel) => {
-    sel.onchange = async () => {
-      if (!sel.value) return;
-      await api(`/api/admin/pools/${sel.dataset.addToPool}/players`, { method: 'POST', body: JSON.stringify({ registrationId: Number(sel.value) }) });
-      renderTab();
+
+  renderPoolBuilder();
+  document.getElementById('unassignedSearch').oninput = renderPoolBuilder;
+}
+
+// ---------------------------------------------------------------------------
+// DRAG-AND-DROP POOL BUILDER
+// ---------------------------------------------------------------------------
+function renderPoolBuilder() {
+  const assignedPlayerIds = new Set(state.pools.flatMap((p) => (p.players || []).map((pl) => pl.player_id)));
+  const search = (document.getElementById('unassignedSearch')?.value || '').toLowerCase();
+  const unassigned = state.registrations.filter((r) =>
+    !assignedPlayerIds.has(r.player_id) &&
+    ['registered', 'confirmed'].includes(r.status) &&
+    `${r.first_name} ${r.last_name}`.toLowerCase().includes(search)
+  );
+
+  document.getElementById('unassignedList').innerHTML = unassigned.length
+    ? unassigned.map((r) => playerChip(r.first_name, r.last_name, r.id, null)).join('')
+    : '<div class="empty-note">Kõik on poolidesse jaotatud.</div>';
+
+  document.getElementById('poolGrid').innerHTML = state.pools.map((p) => `
+    <div class="pool-drop" data-drop-zone="${p.id}" style="border:1px solid var(--line); border-radius:10px; padding:10px; min-height:90px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <strong style="font-size:13px;">Pool ${p.pool_number}</strong>
+        <span style="font-size:10.5px; color:${p.max_players && (p.players||[]).length >= p.max_players ? 'var(--bogey)' : 'var(--ink-faint)'};">
+          ${(p.players||[]).length}${p.max_players ? '/'+p.max_players : ''}
+        </span>
+      </div>
+      <div class="chip-list">
+        ${(p.players || []).map((pl) => playerChip(pl.first_name, pl.last_name, pl.registration_id, pl.pool_player_id)).join('') || '<span class="empty-note" style="font-size:11px;">Lohista siia</span>'}
+      </div>
+    </div>`).join('') || '<div class="empty-note">Loo kõigepealt vähemalt üks pool ülal.</div>';
+
+  wireDragAndDrop();
+}
+
+function playerChip(first, last, registrationId, poolPlayerId) {
+  const payload = JSON.stringify({ registrationId, poolPlayerId }).replace(/"/g, '&quot;');
+  return `<div class="chip" draggable="true" data-drag-payload="${payload}" style="cursor:grab;">${first} ${last}</div>`;
+}
+
+function wireDragAndDrop() {
+  document.querySelectorAll('[data-drag-payload]').forEach((chip) => {
+    chip.ondragstart = (e) => {
+      e.dataTransfer.setData('text/plain', chip.dataset.dragPayload);
+      e.dataTransfer.effectAllowed = 'move';
     };
   });
-  document.querySelectorAll('[data-remove-pool-player]').forEach((x) => {
-    x.onclick = async () => { await api(`/api/admin/pools/players/${x.dataset.removePoolPlayer}`, { method: 'DELETE' }); renderTab(); };
+
+  document.querySelectorAll('[data-drop-zone]').forEach((zone) => {
+    zone.ondragover = (e) => { e.preventDefault(); zone.style.background = 'rgba(255,107,53,0.08)'; };
+    zone.ondragleave = () => { zone.style.background = ''; };
+    zone.ondrop = async (e) => {
+      e.preventDefault();
+      zone.style.background = '';
+      const raw = e.dataTransfer.getData('text/plain');
+      if (!raw) return;
+      const payload = JSON.parse(raw.replace(/&quot;/g, '"'));
+      const targetZone = zone.dataset.dropZone;
+
+      // Kui mängija oli juba mõnes poolis, eemalda ta sealt esmalt
+      if (payload.poolPlayerId) {
+        await api(`/api/admin/pools/players/${payload.poolPlayerId}`, { method: 'DELETE' });
+      }
+      // Kui sihtmärk on pärismaine pool (mitte "unassigned"), lisa ta sinna
+      if (targetZone !== 'unassigned') {
+        await api(`/api/admin/pools/${targetZone}/players`, {
+          method: 'POST',
+          body: JSON.stringify({ registrationId: payload.registrationId }),
+        });
+      }
+      const poolsData = await api(`/api/admin/pools/rounds/${state.selectedRoundId}`);
+      state.pools = poolsData.pools;
+      renderPoolBuilder();
+    };
   });
 }
 
-function poolBlock(pool) {
-  const inPoolRegIds = new Set((pool.players || []).map((p) => p.player_id));
-  const available = state.registrations.filter((r) => !inPoolRegIds.has(r.player_id) && r.status === 'confirmed');
-  return `
-    <div style="border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <strong>Pool ${pool.pool_number}</strong>
-        <span style="font-size:11px; color:var(--ink-faint);">${(pool.players||[]).length}${pool.max_players ? '/'+pool.max_players : ''} · start hole ${pool.start_hole} ${pool.require_double_verification ? '· topelt' : ''}</span>
-      </div>
-      <div class="chip-list" style="margin-top:8px;">
-        ${(pool.players || []).map((p) => `<div class="chip">${p.first_name} ${p.last_name}<span class="x" data-remove-pool-player="${p.pool_id}">✕</span></div>`).join('') || '<span class="empty-note">Mängijaid pole.</span>'}
-      </div>
-      <select data-add-to-pool="${pool.id}" style="margin-top:8px;">
-        <option value="">+ Lisa mängija...</option>
-        ${available.map((r) => `<option value="${r.id}">${r.first_name} ${r.last_name}</option>`).join('')}
-      </select>
-    </div>`;
+async function bulkCreatePools() {
+  const count = Number(document.getElementById('bulkPoolCount').value);
+  const maxPlayers = Number(document.getElementById('bulkPoolMax').value) || null;
+  const startHole = Number(document.getElementById('bulkStartHole').value) || 1;
+  if (!count || count < 1) return;
+
+  const existingNumbers = state.pools.map((p) => p.pool_number);
+  const nextNumber = existingNumbers.length ? Math.max(...existingNumbers) + 1 : 1;
+
+  for (let i = 0; i < count; i++) {
+    await api(`/api/admin/pools/rounds/${state.selectedRoundId}`, {
+      method: 'POST',
+      body: JSON.stringify({ poolNumber: nextNumber + i, maxPlayers, startHole }),
+    });
+  }
+  const poolsData = await api(`/api/admin/pools/rounds/${state.selectedRoundId}`);
+  state.pools = poolsData.pools;
+  renderPoolBuilder();
 }
 
 function addHoleRow(presetNum, presetPar, presetParkId) {

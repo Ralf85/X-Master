@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #0a1512; --bg-panel: #0f1e1a; --bg-panel-2: #142c25;
+    --ink: #eaf2ee; --ink-dim: #7fa396; --ink-faint: #4d6a60;
+    --line: rgba(234, 242, 238, 0.09); --accent: #ff6b35;
+    --birdie: #4fbf82; --bogey: #e8974a; --double: #d9534f;
+    --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg-deep); color: var(--ink); font-family: var(--font-body); min-height: 100vh; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+  .topbar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  h1 { font-family: var(--font-display); font-size: 24px; margin: 0; }
+  .back-link { color: var(--ink-faint); font-size: 12px; text-decoration: none; }
+  .live-pill { display: inline-flex; align-items: center; gap: 7px; background: rgba(255,107,53,0.12); border: 1px solid rgba(255,107,53,0.4); color: var(--accent); font-family: var(--font-display); font-weight: 600; font-size: 12px; letter-spacing: 0.1em; padding: 5px 11px; border-radius: 100px; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: var(--bg-panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .stat-num { font-family: var(--font-display); font-weight: 700; font-size: 32px; }
+  .stat-label { font-size: 11.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px; }
+  .stat-card.warn .stat-num { color: var(--bogey); }
+  .stat-card.danger .stat-num { color: var(--double); }
+  .stat-card.good .stat-num { color: var(--birdie); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; color: var(--ink-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 10px; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: none; }
+  .badge { font-size: 10.5px; font-family: var(--font-display); font-weight: 700; padding: 4px 10px; border-radius: 100px; text-transform: uppercase; }
+  .badge.finished { background: rgba(79,191,130,0.15); color: var(--birdie); }
+  .badge.playing { background: rgba(255,107,53,0.15); color: var(--accent); }
+  .badge.notstarted { background: rgba(234,242,238,0.08); color: var(--ink-faint); }
+  .badge.slow { background: rgba(217,83,79,0.2); color: var(--double); }
+  .card { background: var(--bg-panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .meta { color: var(--ink-faint); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const params = new URLSearchParams(location.search);
+const roundId = params.get('round');
+const token = localStorage.getItem('dg_admin_token');
+if (!token) location.href = '/admin';
+
+const app = document.getElementById('app');
+
+function poolStatusBadge(p) {
+  if (p.isSlow) return `<span class="badge slow">⚠ Aeglane</span>`;
+  if (p.isComplete) return `<span class="badge finished">Lõpetatud</span>`;
+  if (p.notStartedYet) return `<span class="badge notstarted">Pole alustanud</span>`;
+  return `<span class="badge playing">Mängib</span>`;
+}
+
+async function load() {
+  try {
+    const res = await fetch(`/api/admin/control-center/round/${roundId}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 401) { location.href = '/admin'; return; }
+    const data = await res.json();
+
+    app.innerHTML = `
+      <div class="topbar">
+        <div>
+          <a class="back-link" href="/admin">← Kõik võistlused</a>
+          <h1>Control Center</h1>
+        </div>
+        <div class="live-pill"><span class="live-dot"></span>LIVE · uuendatud ${new Date().toLocaleTimeString('et-EE')}</div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num">${data.totalPlayers}</div><div class="stat-label">Mängijaid kokku</div></div>
+        <div class="stat-card"><div class="stat-num">${data.playing}</div><div class="stat-label">Mängib</div></div>
+        <div class="stat-card good"><div class="stat-num">${data.finished}</div><div class="stat-label">Lõpetanud</div></div>
+        <div class="stat-card"><div class="stat-num">${data.notStarted}</div><div class="stat-label">Pole alustanud</div></div>
+        <div class="stat-card ${data.openConflicts > 0 ? 'danger' : ''}"><div class="stat-num">${data.openConflicts}</div><div class="stat-label">Lahtised konfliktid</div></div>
+        <div class="stat-card ${data.slowPoolsCount > 0 ? 'warn' : ''}"><div class="stat-num">${data.slowPoolsCount}</div><div class="stat-label">Aeglased poolid</div></div>
+      </div>
+
+      <div class="card">
+        <table>
+          <tr><th>Pool</th><th>Mängijaid</th><th>Progress</th><th>Staatus</th><th>Viimane tulemus</th></tr>
+          ${data.pools.map((p) => `
+            <tr>
+              <td><strong>Pool ${p.poolNumber}</strong></td>
+              <td>${p.playerCount}</td>
+              <td>${p.holesCompleted} / ${p.totalHoles}</td>
+              <td>${poolStatusBadge(p)}</td>
+              <td class="meta">${p.minutesSinceActivity === null ? '—' : p.minutesSinceActivity + ' min tagasi'}</td>
+            </tr>`).join('') || `<tr><td colspan="5" class="meta">Poole pole veel loodud.</td></tr>`}
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    app.innerHTML = `<div class="card">Ühendus ebaõnnestus.</div>`;
+  }
+}
+
+if (!roundId) {
+  app.innerHTML = `<div class="card">Puudub ?round= parameeter lingis.</div>`;
+} else {
+  load();
+  setInterval(load, 15000);
+}
+</script>
+</body>
+</html>
