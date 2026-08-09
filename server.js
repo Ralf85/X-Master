@@ -46,6 +46,10 @@ app.get('/scorecard', (req, res) => {
     res.sendFile(path.join(__dirname, 'scorecard.html'));
 });
 
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dashboard.html'));
+});
+
 app.use('/api/health', healthRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/admin', adminRoutes);
