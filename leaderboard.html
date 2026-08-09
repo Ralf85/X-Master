@@ -300,6 +300,15 @@
   }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 30; padding: 16px;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal-sheet { width: 100%; max-width: 420px; max-height: 80vh; overflow-y: auto; background: var(--bg-panel-2); border-radius: 16px; padding: 20px; }
+  .park-rank-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .park-rank-row:last-child { border-bottom: none; }
 </style>
 </head>
 <body>
@@ -313,7 +322,22 @@
   <div class="meta" id="lastUpdated"></div>
 </div>
 
+<div style="display:flex; gap:8px; padding:0 20px 14px;">
+  <div class="view-tab active" id="tabLeaderboard" style="cursor:pointer; padding:7px 14px; border-radius:8px; background:var(--bg-panel-2); font-family:var(--font-display); font-size:12.5px; font-weight:600;">Leaderboard</div>
+  <div class="view-tab" id="tabPools" style="cursor:pointer; padding:7px 14px; border-radius:8px; color:var(--ink-faint); font-family:var(--font-display); font-size:12.5px; font-weight:600;">Poolid</div>
+</div>
+
 <div id="content"></div>
+
+<div class="modal-backdrop" id="parkModal">
+  <div class="modal-sheet">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 id="parkModalTitle" style="font-family:var(--font-display); margin:0;"></h3>
+      <span id="parkModalClose" style="cursor:pointer; color:var(--ink-faint); font-size:20px;">✕</span>
+    </div>
+    <div id="parkModalBody"></div>
+  </div>
+</div>
 
 <script>
 const params = new URLSearchParams(location.search);
@@ -377,7 +401,7 @@ function render(data) {
 
   let parkRow = `<th class="corner-th"></th>`;
   for (const g of parkGroups) {
-    parkRow += `<th class="park-th" colspan="${g.count}">${g.name}</th>`;
+    parkRow += `<th class="park-th" colspan="${g.count}" data-park-id="${g.park_id}" data-park-name="${g.name}" style="cursor:${g.park_id ? 'pointer' : 'default'};">${g.name}${g.park_id ? ' 🔍' : ''}</th>`;
   }
 
   let holeRow = `<th class="corner-th" style="top:37px;"></th>`;
@@ -437,6 +461,8 @@ const eventSlug = params.get('event');
 const roundId = params.get('round');
 const apiUrl = eventSlug ? `/api/leaderboard/event/${eventSlug}` : `/api/leaderboard/round/${roundId || '1'}`;
 
+let currentRoundId = null;
+
 async function load() {
   try {
     const res = await fetch(apiUrl);
@@ -446,7 +472,9 @@ async function load() {
       return;
     }
     const data = await res.json();
+    currentRoundId = data.round.id;
     render(data);
+    wireParkClicks();
     document.getElementById('lastUpdated').textContent =
       'Uuendatud ' + new Date().toLocaleTimeString('et-EE');
   } catch (err) {
@@ -455,8 +483,97 @@ async function load() {
   }
 }
 
+function wireParkClicks() {
+  document.querySelectorAll('[data-park-id]').forEach((th) => {
+    if (!th.dataset.parkId || th.dataset.parkId === 'null') return;
+    th.onclick = () => openParkModal(th.dataset.parkId, th.dataset.parkName);
+  });
+}
+
+async function openParkModal(parkId, parkName) {
+  const modal = document.getElementById('parkModal');
+  document.getElementById('parkModalTitle').textContent = parkName + ' - ranking';
+  document.getElementById('parkModalBody').innerHTML = 'Laen...';
+  modal.classList.add('show');
+
+  try {
+    const res = await fetch(`/api/leaderboard/round/${currentRoundId}/park/${parkId}`);
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('parkModalBody').innerHTML = `<div class="state-message" style="margin:20px 0;">${data.error}</div>`;
+      return;
+    }
+    if (data.ranking.length === 0) {
+      document.getElementById('parkModalBody').innerHTML = `<div style="color:var(--ink-faint); font-size:13px;">Keegi pole seda parki veel läbinud.</div>`;
+      return;
+    }
+    document.getElementById('parkModalBody').innerHTML = `
+      <div style="color:var(--ink-faint); font-size:11.5px; margin-bottom:10px;">Par ${data.park.par} · ${data.park.holeCount} rada</div>
+      ${data.ranking.map((r, i) => `
+        <div class="park-rank-row">
+          <span>${i + 1}. ${r.firstName} ${r.lastName}</span>
+          <span style="font-family:var(--font-display); font-weight:700; color:${r.relativeToPar < 0 ? 'var(--birdie)' : r.relativeToPar > 0 ? 'var(--bogey)' : 'var(--ink)'};">${r.relativeToPar === 0 ? 'E' : r.relativeToPar > 0 ? '+' + r.relativeToPar : r.relativeToPar}</span>
+        </div>`).join('')}
+    `;
+  } catch (e) {
+    document.getElementById('parkModalBody').innerHTML = `<div class="state-message" style="margin:20px 0;">Ühendus ebaõnnestus.</div>`;
+  }
+}
+document.getElementById('parkModalClose').onclick = () => document.getElementById('parkModal').classList.remove('show');
+document.getElementById('parkModal').onclick = (e) => { if (e.target.id === 'parkModal') e.currentTarget.classList.remove('show'); };
+
+// ---------------------------------------------------------------------------
+// POOLID vaade (punkt 1/4/54) - avalik, kes kus mängib
+// ---------------------------------------------------------------------------
+let activeView = 'leaderboard';
+
+function renderPoolsView(poolsData) {
+  const el = document.getElementById('content');
+  if (poolsData.pools.length === 0) {
+    el.innerHTML = `<div class="state-message">Poole pole veel loodud.</div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div style="padding:0 20px 24px; display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px;">
+      ${poolsData.pools.map((p) => `
+        <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; padding:14px;">
+          <div style="font-family:var(--font-display); font-weight:600; margin-bottom:8px;">Pool ${p.pool_number}${p.start_time ? ' · ' + p.start_time : ''}</div>
+          <div style="font-size:12.5px; color:var(--ink-dim);">
+            ${p.players.map((pl) => `<div style="padding:3px 0;">${pl.first_name} ${pl.last_name}</div>`).join('') || '<span style="color:var(--ink-faint);">Tühi</span>'}
+          </div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+async function loadPools() {
+  if (!currentRoundId) return;
+  document.getElementById('content').innerHTML = `<div class="state-message">Laen...</div>`;
+  try {
+    const res = await fetch(`/api/leaderboard/round/${currentRoundId}/pools`);
+    const data = await res.json();
+    renderPoolsView(data);
+    document.getElementById('lastUpdated').textContent = 'Uuendatud ' + new Date().toLocaleTimeString('et-EE');
+  } catch (e) {
+    document.getElementById('content').innerHTML = `<div class="state-message">Ühendus katkes.</div>`;
+  }
+}
+
+function switchView(view) {
+  activeView = view;
+  const lb = document.getElementById('tabLeaderboard');
+  const pl = document.getElementById('tabPools');
+  lb.style.background = view === 'leaderboard' ? 'var(--bg-panel-2)' : 'transparent';
+  lb.style.color = view === 'leaderboard' ? 'var(--ink)' : 'var(--ink-faint)';
+  pl.style.background = view === 'pools' ? 'var(--bg-panel-2)' : 'transparent';
+  pl.style.color = view === 'pools' ? 'var(--ink)' : 'var(--ink-faint)';
+  if (view === 'pools') loadPools(); else load();
+}
+document.getElementById('tabLeaderboard').onclick = () => switchView('leaderboard');
+document.getElementById('tabPools').onclick = () => switchView('pools');
+
 load();
-setInterval(load, 8000);
+setInterval(() => { if (activeView === 'leaderboard') load(); else loadPools(); }, 8000);
 </script>
 </body>
 </html>

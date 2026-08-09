@@ -168,4 +168,29 @@ router.get('/round/:roundId/park/:parkId', asyncHandler(async (req, res) => {
     res.json({ park: { holeCount: holes.length, par: parkPar }, ranking });
 }));
 
+// ---------------------------------------------------------------------------
+// GET /api/leaderboard/round/:roundId/pools
+// Avalik poolide vaade (punkt 4/54) - kes kus mängib, ilma sisselogimiseta
+// ---------------------------------------------------------------------------
+router.get('/round/:roundId/pools', asyncHandler(async (req, res) => {
+    const { rows: pools } = await pool.query(
+        'SELECT id, pool_number, start_time, start_hole FROM pools WHERE round_id = $1 ORDER BY pool_number',
+        [req.params.roundId]
+    );
+    const { rows: players } = await pool.query(
+        `SELECT pp.pool_id, p.first_name, p.last_name
+         FROM pool_players pp
+         JOIN registrations r ON r.id = pp.registration_id
+         JOIN players p ON p.id = r.player_id
+         WHERE pp.pool_id = ANY($1::int[])
+         ORDER BY p.first_name`,
+        [pools.map((p) => p.id)]
+    );
+    const result = pools.map((p) => ({
+        ...p,
+        players: players.filter((pl) => pl.pool_id === p.id),
+    }));
+    res.json({ pools: result });
+}));
+
 module.exports = router;

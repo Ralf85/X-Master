@@ -276,14 +276,16 @@ function renderDashboard() {
 }
 
 function rowUpcoming(r) {
-  return `<a href="/event?slug=${r.slug}" class="event-row" style="text-decoration:none; color:inherit;">
+  return `<a href="/event?slug=${r.slug}" class="event-row" style="text-decoration:none; color:inherit; align-items:center;">
     <div><div class="event-name">${r.event_name}</div><div class="event-meta">${fmtDate(r.start_date)} · ${r.division_name}</div></div>
-    <span class="badge ${r.status}">${r.status === 'confirmed' ? 'KINNITATUD' : 'REGISTREERITUD'}</span>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span class="badge ${r.status}">${r.status === 'confirmed' ? 'KINNITATUD' : 'REGISTREERITUD'}</span>
+      <span class="btn small" style="pointer-events:none;">Vali pool / Märgi →</span>
+    </div>
   </a>`;
 }
 function rowPast(r) {
-  return `<a href="/event?slug=${r.slug}" class="event-row" style="text-decoration:none; color:inherit;">
-    <div><div class="event-name">${r.event_name}</div><div class="event-meta">${fmtDate(r.start_date)} · ${r.division_name}</div></div>
+  return `<a href="/event?slug=${r.slug}" class="event-row" style="text-decoration:none; color:inherit;">    <div><div class="event-name">${r.event_name}</div><div class="event-meta">${fmtDate(r.start_date)} · ${r.division_name}</div></div>
   </a>`;
 }
 function rowOpen(e) {
