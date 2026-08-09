@@ -42,6 +42,10 @@ app.get('/leaderboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'leaderboard.html'));
 });
 
+app.get('/scorecard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'scorecard.html'));
+});
+
 app.use('/api/health', healthRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/admin', adminRoutes);
