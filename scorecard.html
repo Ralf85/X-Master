@@ -116,10 +116,15 @@
     font-family: var(--font-display);
     cursor: pointer;
     display: flex; flex-direction: column; align-items: center; gap: 3px;
+    position: relative;
   }
   .score-btn .num { font-size: 22px; font-weight: 700; }
   .score-btn .lbl { font-size: 10px; letter-spacing: 0.04em; color: var(--ink-dim); }
   .score-btn:active { transform: scale(0.96); }
+  .score-btn.selected { border: 2px solid var(--accent); background: rgba(255,107,53,0.12); }
+  .score-btn.selected-conflict { border: 2px solid var(--double); background: rgba(217,83,79,0.14); }
+  .selected-check { position: absolute; top: 4px; right: 6px; font-size: 11px; color: var(--accent); }
+  .score-btn.selected-conflict .selected-check { color: var(--double); }
   .score-btn.hio .num { color: var(--eagle); }
   .score-btn.eagle .num, .score-btn.albatross .num { color: var(--eagle); }
   .score-btn.birdie .num { color: var(--birdie); }
@@ -472,6 +477,7 @@ function renderHole() {
   } else {
     const player = state.players[state.playerIdx];
     const buttons = generateButtons(hole.par);
+    const existingScore = state.scores[scoreKey(player.player_id, hole.id)];
     body = `
       <div class="player-card">
         <div class="avatar-row">
@@ -481,13 +487,22 @@ function renderHole() {
             <div class="player-sub">#${player.player_number}</div>
           </div>
         </div>
+        ${existingScore ? `<div style="font-size:11px; color:var(--ink-faint); margin-bottom:8px;">Eelnevalt märgitud: <strong style="color:${existingScore.status === 'conflict' ? 'var(--double)' : 'var(--accent)'};">${existingScore.strokes}</strong></div>` : ''}
         <div class="btn-grid">
-          ${buttons.map((b) => `
-            <button class="score-btn ${b.cls}" data-strokes="${b.strokes || ''}" data-more="${b.isMore ? '1' : ''}" data-more-start="${b.moreStart || ''}">
+          ${buttons.map((b) => {
+            let isSelected = false;
+            if (existingScore) {
+              isSelected = b.isMore ? existingScore.strokes >= b.moreStart : existingScore.strokes === b.strokes;
+            }
+            const selClass = isSelected ? (existingScore.status === 'conflict' ? 'selected-conflict' : 'selected') : '';
+            return `
+            <button class="score-btn ${b.cls} ${selClass}" data-strokes="${b.strokes || ''}" data-more="${b.isMore ? '1' : ''}" data-more-start="${b.moreStart || ''}">
+              ${isSelected ? '<span class="selected-check">✓</span>' : ''}
               <span class="num">${b.isMore ? b.moreStart + '+' : b.strokes}</span>
               <span class="lbl">${b.label}</span>
             </button>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
       </div>`;
   }
