@@ -328,8 +328,14 @@ async function loadScorecard() {
     state.scores = {};
     for (const s of data.scores) state.scores[scoreKey(s.player_id, s.hole_id)] = s;
 
+    // Kui eelmisest korrast on veel salvestamata tulemusi kohapeal, näita neid kohe
+    for (const item of getPendingQueue()) {
+      state.scores[scoreKey(item.playerId, item.holeId)] = { hole_id: item.holeId, player_id: item.playerId, strokes: item.strokes, status: 'pending_sync' };
+    }
+
     resumePosition();
     renderHole();
+    flushQueue();
   } catch (e) {
     app.innerHTML = `<div class="done-card">Ühendus ebaõnnestus. <br><button class="nav-btn" onclick="loadScorecard()">Proovi uuesti</button></div>`;
   }
@@ -351,21 +357,99 @@ function resumePosition() {
   state.playerIdx = firstUnscoredPlayerIdx(hIdx);
 }
 
-async function submitScore(playerId, holeId, strokes) {
-  const res = await fetch(`${API}/api/scorecard/${poolId}/holes/${holeId}/players/${playerId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-    body: JSON.stringify({ strokes }),
-  });
-  const data = await res.json();
-  if (res.status === 409) {
-    showToast(`⚠ Tulemus ei kattu — salvestatud: ${data.officialScore.strokes}. Anna korraldajale teada.`);
-    state.scores[scoreKey(playerId, holeId)] = { hole_id: holeId, player_id: playerId, strokes: data.officialScore.strokes, status: 'conflict' };
-    return false;
+// ---------------------------------------------------------------------------
+// OFFLINE-FIRST: kui võrku pole, salvestame kohapeal ja proovime hiljem uuesti.
+// ---------------------------------------------------------------------------
+const PENDING_KEY = 'dg_pending_scores_' + poolId;
+
+function getPendingQueue() {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch (e) { return []; }
+}
+function setPendingQueue(q) {
+  localStorage.setItem(PENDING_KEY, JSON.stringify(q));
+  updateSyncIndicator();
+}
+function queueScore(playerId, holeId, strokes) {
+  const q = getPendingQueue().filter((item) => !(item.playerId === playerId && item.holeId === holeId));
+  q.push({ playerId, holeId, strokes, queuedAt: Date.now() });
+  setPendingQueue(q);
+}
+function updateSyncIndicator() {
+  const el = document.getElementById('syncNote');
+  if (!el) return;
+  const q = getPendingQueue();
+  if (q.length === 0) {
+    el.textContent = '✓ Kõik salvestatud serverisse';
+    el.style.color = 'var(--ink-faint)';
+  } else {
+    el.textContent = `⚠ Offline — ${q.length} tulemust ootab saatmist`;
+    el.style.color = 'var(--bogey)';
   }
-  if (!res.ok) { showToast(data.error || 'Viga salvestamisel.'); return false; }
-  state.scores[scoreKey(playerId, holeId)] = { hole_id: holeId, player_id: playerId, strokes: data.officialScore.strokes, status: data.officialScore.status };
-  return true;
+}
+
+let isSyncing = false;
+async function flushQueue() {
+  if (isSyncing || !state.token) return;
+  const q = getPendingQueue();
+  if (q.length === 0) return;
+  isSyncing = true;
+  const el = document.getElementById('syncNote');
+  if (el) { el.textContent = '⟳ Sünkroniseerin...'; el.style.color = 'var(--accent)'; }
+
+  const remaining = [];
+  let syncedCount = 0;
+  for (const item of q) {
+    try {
+      const res = await fetch(`${API}/api/scorecard/${poolId}/holes/${item.holeId}/players/${item.playerId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+        body: JSON.stringify({ strokes: item.strokes }),
+      });
+      const data = await res.json();
+      if (res.status === 409) {
+        showToast(`⚠ Sünkides konflikt — salvestatud: ${data.officialScore.strokes}. Anna korraldajale teada.`);
+        state.scores[scoreKey(item.playerId, item.holeId)] = { hole_id: item.holeId, player_id: item.playerId, strokes: data.officialScore.strokes, status: 'conflict' };
+        syncedCount++;
+      } else if (res.ok) {
+        state.scores[scoreKey(item.playerId, item.holeId)] = { hole_id: item.holeId, player_id: item.playerId, strokes: data.officialScore.strokes, status: data.officialScore.status };
+        syncedCount++;
+      } else {
+        remaining.push(item);
+      }
+    } catch (e) {
+      remaining.push(item); // ikka veel offline - proovime järgmisel korral
+    }
+  }
+  setPendingQueue(remaining);
+  isSyncing = false;
+  if (syncedCount > 0 && remaining.length === 0) showToast(`✓ ${syncedCount} tulemust sünkroonitud.`);
+  renderHole();
+}
+window.addEventListener('online', flushQueue);
+setInterval(flushQueue, 8000);
+
+async function submitScore(playerId, holeId, strokes) {
+  try {
+    const res = await fetch(`${API}/api/scorecard/${poolId}/holes/${holeId}/players/${playerId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+      body: JSON.stringify({ strokes }),
+    });
+    const data = await res.json();
+    if (res.status === 409) {
+      showToast(`⚠ Tulemus ei kattu — salvestatud: ${data.officialScore.strokes}. Anna korraldajale teada.`);
+      state.scores[scoreKey(playerId, holeId)] = { hole_id: holeId, player_id: playerId, strokes: data.officialScore.strokes, status: 'conflict' };
+      return false;
+    }
+    if (!res.ok) { showToast(data.error || 'Viga salvestamisel.'); return false; }
+    state.scores[scoreKey(playerId, holeId)] = { hole_id: holeId, player_id: playerId, strokes: data.officialScore.strokes, status: data.officialScore.status };
+    return true;
+  } catch (networkErr) {
+    // Võrku ei saadud - salvesta kohapeal, mängija saab jätkata
+    queueScore(playerId, holeId, strokes);
+    state.scores[scoreKey(playerId, holeId)] = { hole_id: holeId, player_id: playerId, strokes, status: 'pending_sync' };
+    return true;
+  }
 }
 
 function renderHole() {
@@ -414,7 +498,10 @@ function renderHole() {
         <div class="hole-label">Rada ${hole.hole_number}</div>
         <div class="park-name">${hole.park_name || ''}</div>
       </div>
-      <div class="par-pill">PAR ${hole.par}</div>
+      <div style="text-align:right;">
+        <div class="par-pill">PAR ${hole.par}</div>
+        <a href="/leaderboard?round=${state.pool.round_id}" style="display:block; margin-top:6px; font-size:11px; color:var(--ink-faint); text-decoration:underline;">🏆 Tulemused</a>
+      </div>
     </div>
     <div class="progress-dots">${dots}</div>
     ${body}
@@ -424,7 +511,7 @@ function renderHole() {
         ? `<a class="nav-btn primary" style="display:flex;align-items:center;justify-content:center;text-decoration:none;" href="/leaderboard?round=${state.pool.round_id}">Vaata leaderboard'i</a>`
         : `<button class="nav-btn primary" id="nextHoleBtn" ${complete ? '' : 'disabled'}>Järgmine rada →</button>`}
     </div>
-    <div class="sync-note">✓ salvestatud serverisse</div>
+    <div class="sync-note" id="syncNote">✓ Kõik salvestatud serverisse</div>
   `;
 
   document.getElementById('backBtn').onclick = goBack;
@@ -436,6 +523,7 @@ function renderHole() {
       else handleScore(Number(btn.dataset.strokes));
     };
   });
+  updateSyncIndicator();
 }
 
 async function handleScore(strokes) {
