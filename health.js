@@ -8,7 +8,8 @@ router.get('/', async (req, res) => {
         await pool.query('SELECT 1');
         res.json({ status: 'ok', database: 'connected' });
     } catch (err) {
-        res.status(500).json({ status: 'error', database: 'disconnected' });
+        console.error('Health check andmebaasi viga:', err);
+        res.status(500).json({ status: 'error', database: 'disconnected', detail: err.message });
     }
 });
 
