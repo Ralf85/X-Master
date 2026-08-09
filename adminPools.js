@@ -11,13 +11,13 @@ router.use(adminAuth);
 // Punkt 54: stardigrupi loomine
 // ---------------------------------------------------------------------------
 router.post('/rounds/:roundId', asyncHandler(async (req, res) => {
-    const { poolNumber, startTime, startHole, requireDoubleVerification } = req.body;
+    const { poolNumber, startTime, startHole, requireDoubleVerification, maxPlayers } = req.body;
     if (!poolNumber) return res.status(400).json({ error: 'poolNumber on kohustuslik.' });
 
     const { rows } = await pool.query(
-        `INSERT INTO pools (round_id, pool_number, start_time, start_hole, require_double_verification)
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [req.params.roundId, poolNumber, startTime || null, startHole || 1, Boolean(requireDoubleVerification)]
+        `INSERT INTO pools (round_id, pool_number, start_time, start_hole, require_double_verification, max_players)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [req.params.roundId, poolNumber, startTime || null, startHole || 1, Boolean(requireDoubleVerification), maxPlayers || null]
     );
     res.status(201).json({ pool: rows[0] });
 }));
@@ -78,15 +78,16 @@ router.delete('/players/:poolPlayerId', asyncHandler(async (req, res) => {
 // Staatus (not_started/playing/finished) ja topeltmärkimise seade
 // ---------------------------------------------------------------------------
 router.patch('/:poolId', asyncHandler(async (req, res) => {
-    const { status, requireDoubleVerification, startTime, startHole } = req.body;
+    const { status, requireDoubleVerification, startTime, startHole, maxPlayers } = req.body;
     const { rows } = await pool.query(
         `UPDATE pools SET
             status = COALESCE($1, status),
             require_double_verification = COALESCE($2, require_double_verification),
             start_time = COALESCE($3, start_time),
-            start_hole = COALESCE($4, start_hole)
-         WHERE id = $5 RETURNING *`,
-        [status, requireDoubleVerification, startTime, startHole, req.params.poolId]
+            start_hole = COALESCE($4, start_hole),
+            max_players = COALESCE($5, max_players)
+         WHERE id = $6 RETURNING *`,
+        [status, requireDoubleVerification, startTime, startHole, maxPlayers, req.params.poolId]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Pooli ei leitud.' });
     res.json({ pool: rows[0] });

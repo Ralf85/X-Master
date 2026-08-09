@@ -30,10 +30,19 @@ router.get('/:slug', asyncHandler(async (req, res) => {
     const event = rows[0];
     if (!event) return res.status(404).json({ error: 'Võistlust ei leitud.' });
 
-    const [divisions, parks, rounds] = await Promise.all([
+    const [divisions, parks, rounds, registrations] = await Promise.all([
         pool.query('SELECT id, name, sort_order FROM divisions WHERE event_id = $1 ORDER BY sort_order', [event.id]),
         pool.query('SELECT id, name, color, icon, sponsor, sort_order FROM parks WHERE event_id = $1 ORDER BY sort_order', [event.id]),
         pool.query('SELECT id, round_number, name, round_date, status FROM rounds WHERE event_id = $1 ORDER BY round_number', [event.id]),
+        pool.query(
+            `SELECT r.id, r.status, p.first_name, p.last_name, d.name AS division_name
+             FROM registrations r
+             JOIN players p ON p.id = r.player_id
+             JOIN divisions d ON d.id = r.division_id
+             WHERE r.event_id = $1 AND r.status NOT IN ('removed', 'dns')
+             ORDER BY p.first_name`,
+            [event.id]
+        ),
     ]);
 
     res.json({
@@ -41,6 +50,7 @@ router.get('/:slug', asyncHandler(async (req, res) => {
         divisions: divisions.rows,
         parks: parks.rows,
         rounds: rounds.rows,
+        registrations: registrations.rows,
     });
 }));
 

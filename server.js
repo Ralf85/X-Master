@@ -15,6 +15,7 @@ const adminPoolRoutes = require('./adminPools');
 const scoreRoutes = require('./scores');
 const adminScoreRoutes = require('./adminScores');
 const leaderboardRoutes = require('./leaderboard');
+const playerPoolRoutes = require('./playerPools');
 const { UPLOAD_DIR } = require('./uploadConfig');
 const { errorHandler } = require('./errorHandler');
 
@@ -53,6 +54,10 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
+app.get('/event', (req, res) => {
+    res.sendFile(path.join(__dirname, 'event.html'));
+});
+
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'admin.html'));
 });
@@ -72,6 +77,7 @@ app.use('/api/admin/pools', adminPoolRoutes);
 app.use('/api/scorecard', scoreRoutes);
 app.use('/api/admin/scores', adminScoreRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/pools', playerPoolRoutes);
 
 // 404 käsitleja - peab tulema pärast kõiki route'e
 app.use((req, res) => {

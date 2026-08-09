@@ -287,8 +287,9 @@ async function renderRounds(el) {
       <div class="row3">
         <input id="poolNum" type="number" placeholder="Pooli number">
         <input id="poolStartHole" type="number" placeholder="Start hole" value="1">
-        <label class="checkbox-row" style="margin:0;"><input type="checkbox" id="poolDoubleVerify"> Topeltmärkimine</label>
+        <input id="poolMaxPlayers" type="number" placeholder="Max mängijaid" value="4">
       </div>
+      <label class="checkbox-row"><input type="checkbox" id="poolDoubleVerify"> Topeltmärkimine</label>
       <button class="btn full" id="createPool">Loo pool</button>
     </div>
   `;
@@ -333,7 +334,7 @@ function poolBlock(pool) {
     <div style="border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <strong>Pool ${pool.pool_number}</strong>
-        <span style="font-size:11px; color:var(--ink-faint);">start hole ${pool.start_hole} ${pool.require_double_verification ? '· topelt' : ''}</span>
+        <span style="font-size:11px; color:var(--ink-faint);">${(pool.players||[]).length}${pool.max_players ? '/'+pool.max_players : ''} · start hole ${pool.start_hole} ${pool.require_double_verification ? '· topelt' : ''}</span>
       </div>
       <div class="chip-list" style="margin-top:8px;">
         ${(pool.players || []).map((p) => `<div class="chip">${p.first_name} ${p.last_name}<span class="x" data-remove-pool-player="${p.pool_id}">✕</span></div>`).join('') || '<span class="empty-note">Mängijaid pole.</span>'}
@@ -375,9 +376,10 @@ async function saveHoles() {
 async function createPool() {
   const poolNumber = Number(document.getElementById('poolNum').value);
   const startHole = Number(document.getElementById('poolStartHole').value) || 1;
+  const maxPlayers = Number(document.getElementById('poolMaxPlayers').value) || null;
   const requireDoubleVerification = document.getElementById('poolDoubleVerify').checked;
   if (!poolNumber) return;
-  await api(`/api/admin/pools/rounds/${state.selectedRoundId}`, { method: 'POST', body: JSON.stringify({ poolNumber, startHole, requireDoubleVerification }) });
+  await api(`/api/admin/pools/rounds/${state.selectedRoundId}`, { method: 'POST', body: JSON.stringify({ poolNumber, startHole, maxPlayers, requireDoubleVerification }) });
   renderTab();
 }
 
