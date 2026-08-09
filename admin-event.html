@@ -273,11 +273,23 @@ async function renderRounds(el) {
             </td>
           </tr>`).join('') || ''}
       </table>
+      <h3 style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">🏞️ Lisa terve park korraga (nt "Harjumägi: rajad 1-14")</h3>
+      <div class="row3">
+        <select id="rangePark">${state.parks.map((p) => `<option value="${p.id}">${p.name}</option>`).join('')}</select>
+        <input id="rangeStart" type="number" placeholder="Algus rada (nt 1)">
+        <input id="rangeEnd" type="number" placeholder="Lõpp rada (nt 14)">
+      </div>
+      <div class="row2" style="margin-top:8px;">
+        <input id="rangePar" type="number" placeholder="Par (kõigile, saab hiljem muuta)" value="3">
+        <button class="btn secondary" id="generateRange">Genereeri read allpool ↓</button>
+      </div>
+
       <h3 style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">➕ Lisa UUED rajad (see ei muuda ülal olevaid)</h3>
       <div id="holeRows"></div>
       <button class="btn secondary small" id="addHoleRow">+ Rida</button>
       <button class="btn full" id="saveHoles">Lisa need uued rajad</button>
       <div class="error-msg" id="holesError"></div>
+      <div class="error-msg" id="rangeError"></div>
     </div>
 
     <div class="card">
@@ -296,6 +308,7 @@ async function renderRounds(el) {
 
   addHoleRow();
   document.getElementById('addHoleRow').onclick = addHoleRow;
+  document.getElementById('generateRange').onclick = generateRangeRows;
   document.getElementById('saveHoles').onclick = saveHoles;
   document.getElementById('createPool').onclick = createPool;
   document.querySelectorAll('[data-save-hole]').forEach((btn) => {
@@ -346,17 +359,41 @@ function poolBlock(pool) {
     </div>`;
 }
 
-function addHoleRow() {
+function addHoleRow(presetNum, presetPar, presetParkId) {
   const container = document.getElementById('holeRows');
   const row = document.createElement('div');
   row.className = 'hole-input-row';
-  const nextNum = container.children.length + state.holes.length + 1;
+  const nextNum = presetNum ?? (container.children.length + state.holes.length + 1);
+  const nextPar = presetPar ?? 3;
   row.innerHTML = `
     <input type="number" class="hn" placeholder="Rada" value="${nextNum}">
-    <input type="number" class="hp" placeholder="Par" value="3">
-    <select class="hpark">${state.parks.map((p) => `<option value="${p.id}">${p.name}</option>`).join('')}</select>
+    <input type="number" class="hp" placeholder="Par" value="${nextPar}">
+    <select class="hpark">${state.parks.map((p) => `<option value="${p.id}" ${presetParkId && p.id === presetParkId ? 'selected' : ''}>${p.name}</option>`).join('')}</select>
     <span style="cursor:pointer; color:var(--ink-faint);" onclick="this.parentElement.remove()">✕</span>`;
   container.appendChild(row);
+}
+
+function generateRangeRows() {
+  const parkId = Number(document.getElementById('rangePark').value);
+  const start = Number(document.getElementById('rangeStart').value);
+  const end = Number(document.getElementById('rangeEnd').value);
+  const par = Number(document.getElementById('rangePar').value) || 3;
+  const errorEl = document.getElementById('rangeError');
+  errorEl.textContent = '';
+
+  if (!start || !end || start > end) {
+    errorEl.textContent = 'Sisesta korrektne algus- ja lõpurada (algus peab olema väiksem või võrdne lõpuga).';
+    return;
+  }
+  if (end - start > 200) {
+    errorEl.textContent = 'Liiga suur vahemik korraga (max 200 rada).';
+    return;
+  }
+
+  document.getElementById('holeRows').innerHTML = '';
+  for (let n = start; n <= end; n++) {
+    addHoleRow(n, par, parkId);
+  }
 }
 
 async function saveHoles() {

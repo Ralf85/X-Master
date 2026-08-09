@@ -35,7 +35,7 @@
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding: 18px 16px 24px; }
+  .wrap { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding: 18px 16px 100px; }
 
   /* --- Login screen --- */
   .login-card {
@@ -134,7 +134,15 @@
     font-family: var(--font-display);
   }
 
-  .nav-row { display: flex; gap: 10px; margin-top: auto; padding-top: 14px; }
+  .nav-row {
+    display: flex; gap: 10px;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    max-width: 480px; margin: 0 auto;
+    background: var(--bg-deep);
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    z-index: 10;
+  }
   .nav-btn {
     flex: 1;
     padding: 14px;
