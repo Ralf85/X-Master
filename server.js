@@ -15,6 +15,7 @@ const adminPoolRoutes = require('./adminPools');
 const scoreRoutes = require('./scores');
 const adminScoreRoutes = require('./adminScores');
 const leaderboardRoutes = require('./leaderboard');
+const { UPLOAD_DIR } = require('./uploadConfig');
 const { errorHandler } = require('./errorHandler');
 
 const app = express();
@@ -37,6 +38,8 @@ app.use(express.json());
 app.get('/', (req, res) => {
     res.json({ name: 'Disc Golf Scoring System API', status: 'running' });
 });
+
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 app.get('/leaderboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'leaderboard.html'));

@@ -4,6 +4,7 @@ const pool = require('./db');
 const playerAuth = require('./playerAuth');
 const { asyncHandler } = require('./errorHandler');
 const { isValidPinFormat, hashPin, comparePin, generateRecoveryCode } = require('./pin');
+const { upload } = require('./uploadConfig');
 
 const router = express.Router();
 
@@ -179,6 +180,42 @@ router.post('/me/change-pin', playerAuth, asyncHandler(async (req, res) => {
     const newPinHash = await hashPin(newPin);
     await pool.query('UPDATE players SET pin_hash = $1 WHERE id = $2', [newPinHash, req.player.id]);
     res.json({ message: 'PIN on uuendatud.' });
+}));
+
+// ---------------------------------------------------------------------------
+// POST /api/players/me/profile-image
+// Punkt 9: profiilipildi üleslaadimine, max 5MB, PNG/JPG/WEBP
+// ---------------------------------------------------------------------------
+router.post('/me/profile-image', playerAuth, upload.single('image'), asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Pilti ei leitud.' });
+
+    const publicUrl = `/uploads/${req.file.filename}`;
+    const { rows } = await pool.query(
+        'UPDATE players SET profile_image_url = $1 WHERE id = $2 RETURNING *',
+        [publicUrl, req.player.id]
+    );
+    res.json({ player: publicPlayer(rows[0]) });
+}));
+
+// Multer viskab faili-vea (nt liiga suur, vale tüüp) enne meie handlerini jõudmist -
+// see eraldi error handler püüab selle kinni ja vormistab korralikult.
+router.use('/me/profile-image', (err, req, res, next) => {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'Fail on liiga suur. Maksimaalne suurus on 5MB.' });
+    }
+    res.status(400).json({ error: err.message || 'Faili üleslaadimine ebaõnnestus.' });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /api/players/me/profile-image
+// Punkt 9: "EEMALDA PILT"
+// ---------------------------------------------------------------------------
+router.delete('/me/profile-image', playerAuth, asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+        'UPDATE players SET profile_image_url = NULL WHERE id = $1 RETURNING *',
+        [req.player.id]
+    );
+    res.json({ player: publicPlayer(rows[0]) });
 }));
 
 module.exports = router;

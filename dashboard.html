@@ -173,6 +173,30 @@ async function doRegister() {
   } catch (e) { renderAuth('register', 'Ühendus ebaõnnestus.'); }
 }
 
+async function uploadAvatar(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('image', file);
+  document.getElementById('avatarError').textContent = '';
+  try {
+    const res = await fetch('/api/players/me/profile-image', {
+      method: 'POST', headers: { Authorization: `Bearer ${state.token}` }, body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) { document.getElementById('avatarError').textContent = data.error; return; }
+    state.player = data.player;
+    renderDashboard();
+  } catch (err) { document.getElementById('avatarError').textContent = 'Üleslaadimine ebaõnnestus.'; }
+}
+
+async function removeAvatar() {
+  const res = await fetch('/api/players/me/profile-image', { method: 'DELETE', headers: { Authorization: `Bearer ${state.token}` } });
+  const data = await res.json();
+  state.player = data.player;
+  renderDashboard();
+}
+
 function logout() {
   localStorage.removeItem('dg_player_token');
   state = { token: null, player: null, registrations: [], events: [] };
@@ -211,6 +235,20 @@ function renderDashboard() {
       <div class="logout-link" id="logoutBtn">Logi välja</div>
     </div>
 
+    <div class="card" style="display:flex; align-items:center; gap:16px;">
+      ${state.player.profile_image_url
+        ? `<img src="${state.player.profile_image_url}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;" alt="">`
+        : `<div class="avatar" style="width:64px;height:64px;font-size:22px;background:${color}">${(state.player.first_name[0]||'')+(state.player.last_name[0]||'')}</div>`
+      }
+      <div style="flex:1;">
+        <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Profiilipilt (PNG/JPG/WEBP, max 5MB)</div>
+        <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+        <button class="btn small" id="avatarPickBtn">Laadi pilt üles</button>
+        ${state.player.profile_image_url ? `<button class="btn small secondary" id="avatarRemoveBtn" style="margin-left:6px;">Eemalda</button>` : ''}
+        <div class="error-msg" id="avatarError"></div>
+      </div>
+    </div>
+
     <h2>Minu tulevased võistlused</h2>
     <div class="card">
       ${upcoming.length === 0 ? '<div class="empty-note">Registreerumisi pole.</div>' : upcoming.map(rowUpcoming).join('')}
@@ -227,6 +265,10 @@ function renderDashboard() {
     </div>
   `;
 
+  document.getElementById('avatarPickBtn').onclick = () => document.getElementById('avatarInput').click();
+  document.getElementById('avatarInput').onchange = uploadAvatar;
+  const removeBtn = document.getElementById('avatarRemoveBtn');
+  if (removeBtn) removeBtn.onclick = removeAvatar;
   document.getElementById('logoutBtn').onclick = logout;
   document.querySelectorAll('[data-register]').forEach((btn) => {
     btn.onclick = () => openRegisterModal(btn.dataset.register, btn.dataset.name);

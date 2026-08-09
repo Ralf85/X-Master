@@ -386,12 +386,15 @@ function render(data) {
   data.leaderboard.forEach((p, i) => {
     const initialsText = initials(p.firstName, p.lastName);
     const color = avatarColor(p.firstName + p.lastName);
+    const avatarHtml = p.profileImageUrl
+      ? `<img src="${p.profileImageUrl}" class="avatar" style="object-fit:cover;" alt="">`
+      : `<div class="avatar" style="background:${color}">${initialsText}</div>`;
     const relClass = p.relativeToPar < 0 ? 'under' : p.relativeToPar > 0 ? 'over' : '';
     body += `<tr>
       <td class="player-td">
         <div class="player-row">
           <div class="rank">${p.thru > 0 ? i + 1 : '–'}</div>
-          <div class="avatar" style="background:${color}">${initialsText}</div>
+          ${avatarHtml}
           <div class="name-block">
             <div class="name">${p.firstName} ${p.lastName}</div>
             <div class="division">${p.divisionName}</div>
