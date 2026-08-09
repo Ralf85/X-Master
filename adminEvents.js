@@ -173,4 +173,25 @@ router.get('/rounds/:roundId/holes', asyncHandler(async (req, res) => {
     res.json({ holes: rows });
 }));
 
+router.delete('/holes/:holeId', asyncHandler(async (req, res) => {
+    await pool.query('DELETE FROM holes WHERE id = $1', [req.params.holeId]);
+    res.json({ message: 'Rada kustutatud.' });
+}));
+
+router.patch('/holes/:holeId', asyncHandler(async (req, res) => {
+    const { holeNumber, par, parkId, lengthMeters } = req.body;
+    const { rows } = await pool.query(
+        `UPDATE holes SET
+            hole_number = COALESCE($1, hole_number),
+            par = COALESCE($2, par),
+            park_id = COALESCE($3, park_id),
+            length_meters = COALESCE($4, length_meters)
+         WHERE id = $5
+         RETURNING *`,
+        [holeNumber, par, parkId, lengthMeters, req.params.holeId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Rada ei leitud.' });
+    res.json({ hole: rows[0] });
+}));
+
 module.exports = router;
