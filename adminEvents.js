@@ -80,6 +80,50 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 }));
 
 // ---------------------------------------------------------------------------
+// DELETE /api/admin/events/:id
+// Kustutab võistluse ja kõik seotud andmed. Score-tabelid pole event'ilt
+// automaatse CASCADE peal (round_id kaudu), nii et need tuleb enne käsitsi
+// puhastada, muidu ebaõnnestub kustutamine, kui event'il on juba tulemusi.
+// ---------------------------------------------------------------------------
+router.delete('/:id', asyncHandler(async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const { rows: roundRows } = await client.query('SELECT id FROM rounds WHERE event_id = $1', [req.params.id]);
+        const roundIds = roundRows.map((r) => r.id);
+
+        if (roundIds.length > 0) {
+            await client.query('DELETE FROM score_audit_log WHERE round_id = ANY($1::int[])', [roundIds]);
+            await client.query('DELETE FROM score_conflicts WHERE round_id = ANY($1::int[])', [roundIds]);
+            await client.query('DELETE FROM official_scores WHERE round_id = ANY($1::int[])', [roundIds]);
+            await client.query('DELETE FROM score_entries WHERE round_id = ANY($1::int[])', [roundIds]);
+            // holes.park_id ei ole CASCADE peal - kustuta enne, muidu blokeerib parkide kustutamist
+            await client.query('DELETE FROM holes WHERE round_id = ANY($1::int[])', [roundIds]);
+            // pools.division_id ja registrations.division_id ei ole CASCADE peal,
+            // nii et need tuleb enne divisjonide (ja event'i) kustutamist käsitsi eemaldada.
+            await client.query('DELETE FROM pool_players WHERE pool_id IN (SELECT id FROM pools WHERE round_id = ANY($1::int[]))', [roundIds]);
+            await client.query('DELETE FROM pools WHERE round_id = ANY($1::int[])', [roundIds]);
+        }
+        await client.query('DELETE FROM registrations WHERE event_id = $1', [req.params.id]);
+
+        const { rows } = await client.query('DELETE FROM events WHERE id = $1 RETURNING id, name', [req.params.id]);
+        if (!rows[0]) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Võistlust ei leitud.' });
+        }
+
+        await client.query('COMMIT');
+        res.json({ message: 'Võistlus kustutatud.', event: rows[0] });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}));
+
+// ---------------------------------------------------------------------------
 // DIVISIONS (punkt 50)
 // ---------------------------------------------------------------------------
 router.post('/:id/divisions', asyncHandler(async (req, res) => {

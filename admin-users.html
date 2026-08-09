@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Kasutajad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #f5f7f6; --bg-panel: #ffffff; --bg-panel-2: #eef2f0;
+    --ink: #16241f; --ink-dim: #4d6a60; --ink-faint: #8a9d95;
+    --line: rgba(22, 36, 31, 0.1); --accent: #ff6b35;
+    --birdie: #2e9d5c; --bogey: #c97a1f; --double: #c94444;
+    --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg-deep); color: var(--ink); font-family: var(--font-body); min-height: 100vh; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 20px 16px 60px; }
+  .card { background: var(--bg-panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  h1 { font-family: var(--font-display); font-size: 24px; margin: 0 0 4px; }
+  .nav-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .nav-links { display: flex; gap: 16px; }
+  .nav-links a { color: var(--ink-dim); text-decoration: none; font-size: 13px; font-family: var(--font-display); font-weight: 600; }
+  .nav-links a.active { color: var(--accent); }
+  .logout-link { color: var(--ink-faint); font-size: 12px; cursor: pointer; text-decoration: underline; }
+  input { width: 100%; background: var(--bg-panel-2); border: 1px solid var(--line); color: var(--ink); font-family: var(--font-body); font-size: 14.5px; padding: 10px 12px; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; color: var(--ink-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 10px; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: none; }
+  .btn { background: var(--accent); color: #1a0e08; border: none; font-family: var(--font-display); font-weight: 700; font-size: 12.5px; padding: 8px 13px; border-radius: 7px; cursor: pointer; }
+  .btn.secondary { background: var(--bg-panel-2); color: var(--ink); border: 1px solid var(--line); }
+  .empty-note { color: var(--ink-faint); font-size: 13px; }
+  .claimed-badge { font-size: 10px; font-family: var(--font-display); font-weight: 700; padding: 3px 8px; border-radius: 100px; }
+  .claimed-badge.yes { background: rgba(46,157,92,0.12); color: var(--birdie); }
+  .claimed-badge.no { background: rgba(201,122,31,0.12); color: var(--bogey); }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const token = localStorage.getItem('dg_admin_token');
+if (!token) location.href = '/admin';
+
+const app = document.getElementById('app');
+let players = [];
+let resetPinMessage = null;
+
+async function api(path) {
+  const res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+  if (res.status === 401) { location.href = '/admin'; throw new Error('unauthorized'); }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Viga');
+  return data;
+}
+
+async function load(search) {
+  app.innerHTML = renderShell(`<div class="empty-note">Laen...</div>`);
+  try {
+    const data = await api(`/api/admin/players?search=${encodeURIComponent(search || '')}`);
+    players = data.players;
+    render(search || '');
+  } catch (e) {
+    app.innerHTML = renderShell(`<div class="empty-note">Viga: ${e.message}</div>`);
+  }
+}
+
+function renderShell(inner) {
+  return `
+    <div class="nav-row">
+      <div>
+        <h1>Kasutajad</h1>
+      </div>
+      <div class="logout-link" id="logoutBtn">Logi välja</div>
+    </div>
+    <div class="nav-links" style="margin-bottom:18px;">
+      <a href="/admin">Võistlused</a>
+      <a href="/admin-users" class="active">Kasutajad</a>
+    </div>
+    ${inner}
+  `;
+}
+
+function render(search) {
+  app.innerHTML = renderShell(`
+    <div class="card">
+      <input id="searchInput" placeholder="Otsi nime, Player ID või emaili järgi..." value="${search}">
+    </div>
+
+    ${resetPinMessage ? `<div class="card" style="background:rgba(46,157,92,0.08); border-color:var(--birdie); display:flex; justify-content:space-between; align-items:center;">
+      <span style="color:var(--birdie); font-family:var(--font-display); font-weight:600; font-size:13px;">${resetPinMessage}</span>
+      <span id="dismissPinMsg" style="cursor:pointer; color:var(--ink-faint);">✕</span>
+    </div>` : ''}
+
+    <div class="card">
+      ${players.length === 0 ? '<div class="empty-note">Ühtegi mängijat ei leitud.</div>' : `
+      <table>
+        <tr><th>#</th><th>Nimi</th><th>Kontakt</th><th>Konto</th><th></th></tr>
+        ${players.map((p) => `
+          <tr>
+            <td>${p.player_number}</td>
+            <td>${p.first_name} ${p.last_name}${p.pdga_number ? '<br><span style="color:var(--ink-faint);font-size:11px;">PDGA ' + p.pdga_number + '</span>' : ''}</td>
+            <td style="color:var(--ink-dim); font-size:12.5px;">${p.email || p.phone || '—'}</td>
+            <td><span class="claimed-badge ${p.is_claimed ? 'yes' : 'no'}">${p.is_claimed ? 'Loodud' : 'Admin lisatud'}</span></td>
+            <td><button class="btn secondary" data-reset-pin="${p.id}" data-player-name="${p.first_name} ${p.last_name}">Lähtesta PIN</button></td>
+          </tr>`).join('')}
+      </table>`}
+    </div>
+  `);
+
+  document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('dg_admin_token'); location.href = '/admin'; };
+  document.getElementById('searchInput').oninput = (e) => {
+    clearTimeout(window._searchDebounce);
+    window._searchDebounce = setTimeout(() => load(e.target.value), 300);
+  };
+  document.querySelectorAll('[data-reset-pin]').forEach((btn) => {
+    btn.onclick = async () => {
+      const res = await fetch(`/api/admin/players/${btn.dataset.resetPin}/reset-pin`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      resetPinMessage = `Uus PIN mängijale ${btn.dataset.playerName}: ${data.newPin} — ütle see talle kohe, teine kord seda enam ei näe.`;
+      render(document.getElementById('searchInput').value);
+    };
+  });
+  const dismissBtn = document.getElementById('dismissPinMsg');
+  if (dismissBtn) dismissBtn.onclick = () => { resetPinMessage = null; render(document.getElementById('searchInput').value); };
+}
+
+load('');
+</script>
+</body>
+</html>

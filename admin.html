@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg-deep: #0a1512; --bg-panel: #0f1e1a; --bg-panel-2: #142c25;
-    --ink: #eaf2ee; --ink-dim: #7fa396; --ink-faint: #4d6a60;
-    --line: rgba(234, 242, 238, 0.09); --accent: #ff6b35;
-    --birdie: #4fbf82; --bogey: #e8974a; --double: #d9534f;
+    --bg-deep: #f5f7f6; --bg-panel: #ffffff; --bg-panel-2: #eef2f0;
+    --ink: #16241f; --ink-dim: #4d6a60; --ink-faint: #8a9d95;
+    --line: rgba(22, 36, 31, 0.1); --accent: #ff6b35;
+    --birdie: #2e9d5c; --bogey: #c97a1f; --double: #c94444;
     --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
   }
   * { box-sizing: border-box; }
@@ -104,6 +104,10 @@ async function loadEvents() {
 function renderEvents() {
   app.innerHTML = `
     <div class="topbar"><h1>Võistlused</h1><div class="logout-link" id="logoutBtn">Logi välja</div></div>
+    <div class="nav-links" style="display:flex; gap:16px; margin-bottom:18px;">
+      <a href="/admin" style="color:var(--accent); text-decoration:none; font-size:13px; font-family:var(--font-display); font-weight:600;">Võistlused</a>
+      <a href="/admin-users" style="color:var(--ink-dim); text-decoration:none; font-size:13px; font-family:var(--font-display); font-weight:600;">Kasutajad</a>
+    </div>
 
     <div class="card">
       ${state.events.length === 0 ? '<div class="empty-note">Ühtegi võistlust pole veel loodud.</div>' : state.events.map(eventRow).join('')}
@@ -133,12 +137,26 @@ function renderEvents() {
   document.querySelectorAll('[data-event-id]').forEach((el) => {
     el.onclick = () => { location.href = `/admin-event?event=${el.dataset.eventId}`; };
   });
+  document.querySelectorAll('[data-delete-event]').forEach((el) => {
+    el.onclick = async (ev) => {
+      ev.stopPropagation();
+      const ok = confirm(`Kindel, et tahad kustutada "${el.dataset.eventName}"?\n\nSee kustutab jäädavalt kõik divisjonid, pargid, ringid, registreerumised, poolid ja tulemused. Seda ei saa tagasi võtta.`);
+      if (!ok) return;
+      await fetch(`/api/admin/events/${el.dataset.deleteEvent}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${state.token}` },
+      });
+      loadEvents();
+    };
+  });
 }
 
 function eventRow(e) {
-  return `<div class="event-row" data-event-id="${e.id}">
+  return `<div class="event-row" data-event-id="${e.id}" style="align-items:center;">
     <div><div class="event-name">${e.name}</div><div class="event-meta">${e.start_date ? new Date(e.start_date).toLocaleDateString('et-EE') : ''} ${e.location ? '· ' + e.location : ''}</div></div>
-    <span class="status-pill ${e.status}">${e.status.replace('_',' ')}</span>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span class="status-pill ${e.status}">${e.status.replace('_',' ')}</span>
+      <span data-delete-event="${e.id}" data-event-name="${e.name}" style="cursor:pointer; color:var(--double); font-size:11px; padding:4px 9px; border:1px solid var(--double); border-radius:6px;">Kustuta</span>
+    </div>
   </div>`;
 }
 
