@@ -211,6 +211,14 @@ function avatarColor(name) {
   return AVATAR_COLORS[Math.abs(h)];
 }
 
+// Shotgun-start: pool ei pruugi alustada rajast 1. Mäng käib start_hole'ist
+// kuni kursuse lõpuni, siis jätkub rajast 1 ja lõpeb rajal enne start_hole'i.
+function getPlayOrder(holes, startHoleNumber) {
+  const startIdx = holes.findIndex((h) => h.hole_number === startHoleNumber);
+  if (startIdx <= 0) return holes;
+  return [...holes.slice(startIdx), ...holes.slice(0, startIdx)];
+}
+
 function generateButtons(par) {
   const labels = { '-4': 'CONDOR', '-3': 'ALBATROSS', '-2': 'EAGLE', '-1': 'BIRDIE', '0': 'PAR', '1': 'BOGEY', '2': 'DOUBLE' };
   const seen = new Set();
@@ -297,6 +305,7 @@ async function loadScorecard() {
     state.pool = data.pool;
     state.players = data.players;
     state.holes = data.holes;
+    state.playOrder = getPlayOrder(data.holes, state.pool.start_hole);
     state.scores = {};
     for (const s of data.scores) state.scores[scoreKey(s.player_id, s.hole_id)] = s;
 
@@ -308,17 +317,17 @@ async function loadScorecard() {
 }
 
 function holeComplete(holeIdx) {
-  const hole = state.holes[holeIdx];
+  const hole = state.playOrder[holeIdx];
   return state.players.every((p) => state.scores[scoreKey(p.player_id, hole.id)]);
 }
 function firstUnscoredPlayerIdx(holeIdx) {
-  const hole = state.holes[holeIdx];
+  const hole = state.playOrder[holeIdx];
   const idx = state.players.findIndex((p) => !state.scores[scoreKey(p.player_id, hole.id)]);
   return idx === -1 ? state.players.length : idx;
 }
 function resumePosition() {
-  let hIdx = state.holes.findIndex((_, i) => !holeComplete(i));
-  if (hIdx === -1) hIdx = state.holes.length - 1;
+  let hIdx = state.playOrder.findIndex((_, i) => !holeComplete(i));
+  if (hIdx === -1) hIdx = state.playOrder.length - 1;
   state.holeIdx = hIdx;
   state.playerIdx = firstUnscoredPlayerIdx(hIdx);
 }
@@ -341,8 +350,10 @@ async function submitScore(playerId, holeId, strokes) {
 }
 
 function renderHole() {
-  const hole = state.holes[state.holeIdx];
+  const hole = state.playOrder[state.holeIdx];
   const complete = state.playerIdx >= state.players.length;
+  const isLastHole = state.holeIdx === state.playOrder.length - 1;
+  const roundFinished = complete && isLastHole;
 
   let dots = state.players.map((p, i) => {
     const has = state.scores[scoreKey(p.player_id, hole.id)];
@@ -351,7 +362,9 @@ function renderHole() {
   }).join('');
 
   let body;
-  if (complete) {
+  if (roundFinished) {
+    body = `<div class="done-card">🏁 Ring on läbitud!<br><span style="font-size:12px">Kõik tulemused on salvestatud.</span></div>`;
+  } else if (complete) {
     body = `<div class="done-card">✓ Kõik tulemused sisestatud<br><span style="font-size:12px">Vajuta "Järgmine rada"</span></div>`;
   } else {
     const player = state.players[state.playerIdx];
@@ -389,13 +402,16 @@ function renderHole() {
     ${body}
     <div class="nav-row">
       <button class="nav-btn" id="backBtn">← Tagasi</button>
-      <button class="nav-btn primary" id="nextHoleBtn" ${complete ? '' : 'disabled'}>Järgmine rada →</button>
+      ${roundFinished
+        ? `<a class="nav-btn primary" style="display:flex;align-items:center;justify-content:center;text-decoration:none;" href="/leaderboard?round=${state.pool.round_id}">Vaata leaderboard'i</a>`
+        : `<button class="nav-btn primary" id="nextHoleBtn" ${complete ? '' : 'disabled'}>Järgmine rada →</button>`}
     </div>
     <div class="sync-note">✓ salvestatud serverisse</div>
   `;
 
   document.getElementById('backBtn').onclick = goBack;
-  document.getElementById('nextHoleBtn').onclick = goNextHole;
+  const nextBtn = document.getElementById('nextHoleBtn');
+  if (nextBtn) nextBtn.onclick = goNextHole;
   document.querySelectorAll('.score-btn').forEach((btn) => {
     btn.onclick = () => {
       if (btn.dataset.more) openMoreModal();
@@ -405,7 +421,7 @@ function renderHole() {
 }
 
 async function handleScore(strokes) {
-  const hole = state.holes[state.holeIdx];
+  const hole = state.playOrder[state.holeIdx];
   const player = state.players[state.playerIdx];
   const ok = await submitScore(player.player_id, hole.id, strokes);
   if (state.playerIdx < state.players.length) state.playerIdx += 1;
@@ -422,7 +438,7 @@ function goBack() {
   renderHole();
 }
 function goNextHole() {
-  if (state.holeIdx < state.holes.length - 1) {
+  if (state.holeIdx < state.playOrder.length - 1) {
     state.holeIdx += 1;
     state.playerIdx = firstUnscoredPlayerIdx(state.holeIdx);
     renderHole();
@@ -433,7 +449,7 @@ const moreModal = document.getElementById('moreModal');
 const moreValEl = document.getElementById('moreVal');
 let moreVal = 7;
 function openMoreModal() {
-  const hole = state.holes[state.holeIdx];
+  const hole = state.playOrder[state.holeIdx];
   moreVal = hole.par + 3;
   moreValEl.textContent = moreVal;
   moreModal.classList.add('show');
