@@ -197,6 +197,31 @@ async function removeAvatar() {
   renderDashboard();
 }
 
+async function saveName() {
+  const firstName = document.getElementById('editFirstName').value.trim();
+  const lastName = document.getElementById('editLastName').value.trim();
+  document.getElementById('nameError').textContent = '';
+  document.getElementById('nameOk').textContent = '';
+  if (!firstName || !lastName) {
+    document.getElementById('nameError').textContent = 'Eesnimi ja perekonnanimi ei tohi olla tühjad.';
+    return;
+  }
+  try {
+    const res = await fetch('/api/players/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+      body: JSON.stringify({ firstName, lastName }),
+    });
+    const data = await res.json();
+    if (!res.ok) { document.getElementById('nameError').textContent = data.error; return; }
+    state.player = data.player;
+    document.getElementById('nameOk').textContent = '✓ Salvestatud';
+    document.querySelector('.top-user .who strong').textContent = state.player.first_name;
+  } catch (e) {
+    document.getElementById('nameError').textContent = 'Ühendus ebaõnnestus.';
+  }
+}
+
 function logout() {
   localStorage.removeItem('dg_player_token');
   state = { token: null, player: null, registrations: [], events: [] };
@@ -235,17 +260,29 @@ function renderDashboard() {
       <div class="logout-link" id="logoutBtn">Logi välja</div>
     </div>
 
-    <div class="card" style="display:flex; align-items:center; gap:16px;">
-      ${state.player.profile_image_url
-        ? `<img src="${state.player.profile_image_url}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;" alt="">`
-        : `<div class="avatar" style="width:64px;height:64px;font-size:22px;background:${color}">${(state.player.first_name[0]||'')+(state.player.last_name[0]||'')}</div>`
-      }
-      <div style="flex:1;">
-        <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Profiilipilt (PNG/JPG/WEBP, max 5MB)</div>
-        <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
-        <button class="btn small" id="avatarPickBtn">Laadi pilt üles</button>
-        ${state.player.profile_image_url ? `<button class="btn small secondary" id="avatarRemoveBtn" style="margin-left:6px;">Eemalda</button>` : ''}
-        <div class="error-msg" id="avatarError"></div>
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:16px;">
+        ${state.player.profile_image_url
+          ? `<img src="${state.player.profile_image_url}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;" alt="">`
+          : `<div class="avatar" style="width:64px;height:64px;font-size:22px;background:${color}">${(state.player.first_name[0]||'')+(state.player.last_name[0]||'')}</div>`
+        }
+        <div style="flex:1;">
+          <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Profiilipilt (PNG/JPG/WEBP, max 5MB)</div>
+          <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+          <button class="btn small" id="avatarPickBtn">Laadi pilt üles</button>
+          ${state.player.profile_image_url ? `<button class="btn small secondary" id="avatarRemoveBtn" style="margin-left:6px;">Eemalda</button>` : ''}
+          <div class="error-msg" id="avatarError"></div>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
+        <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Nimi</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <input id="editFirstName" value="${state.player.first_name}" placeholder="Eesnimi">
+          <input id="editLastName" value="${state.player.last_name}" placeholder="Perekonnanimi">
+        </div>
+        <button class="btn small" id="saveNameBtn" style="margin-top:10px;">Salvesta nimi</button>
+        <div class="error-msg" id="nameError"></div>
+        <div id="nameOk" style="color:var(--birdie); font-size:12px; margin-top:6px;"></div>
       </div>
     </div>
 
@@ -269,6 +306,7 @@ function renderDashboard() {
   document.getElementById('avatarInput').onchange = uploadAvatar;
   const removeBtn = document.getElementById('avatarRemoveBtn');
   if (removeBtn) removeBtn.onclick = removeAvatar;
+  document.getElementById('saveNameBtn').onclick = saveName;
   document.getElementById('logoutBtn').onclick = logout;
   document.querySelectorAll('[data-register]').forEach((btn) => {
     btn.onclick = () => openRegisterModal(btn.dataset.register, btn.dataset.name);

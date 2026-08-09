@@ -140,21 +140,30 @@ router.get('/me', playerAuth, asyncHandler(async (req, res) => {
 // Punkt 8: mitte-tundlike profiiliväljade muutmine
 // ---------------------------------------------------------------------------
 router.patch('/me', playerAuth, asyncHandler(async (req, res) => {
-    const { phone, email, country, pdgaNumber, profileImageUrl,
+    const { firstName, lastName, phone, email, country, pdgaNumber, profileImageUrl,
             wantsEventNotifications, wantsMarketingNotifications } = req.body;
+
+    if (firstName !== undefined && !firstName.trim()) {
+        return res.status(400).json({ error: 'Eesnimi ei tohi olla tühi.' });
+    }
+    if (lastName !== undefined && !lastName.trim()) {
+        return res.status(400).json({ error: 'Perekonnanimi ei tohi olla tühi.' });
+    }
 
     const { rows } = await pool.query(
         `UPDATE players SET
-            phone = COALESCE($1, phone),
-            email = COALESCE($2, email),
-            country = COALESCE($3, country),
-            pdga_number = COALESCE($4, pdga_number),
-            profile_image_url = COALESCE($5, profile_image_url),
-            wants_event_notifications = COALESCE($6, wants_event_notifications),
-            wants_marketing_notifications = COALESCE($7, wants_marketing_notifications)
-         WHERE id = $8
+            first_name = COALESCE($1, first_name),
+            last_name = COALESCE($2, last_name),
+            phone = COALESCE($3, phone),
+            email = COALESCE($4, email),
+            country = COALESCE($5, country),
+            pdga_number = COALESCE($6, pdga_number),
+            profile_image_url = COALESCE($7, profile_image_url),
+            wants_event_notifications = COALESCE($8, wants_event_notifications),
+            wants_marketing_notifications = COALESCE($9, wants_marketing_notifications)
+         WHERE id = $10
          RETURNING *`,
-        [phone, email, country, pdgaNumber, profileImageUrl,
+        [firstName, lastName, phone, email, country, pdgaNumber, profileImageUrl,
          wantsEventNotifications, wantsMarketingNotifications, req.player.id]
     );
 
