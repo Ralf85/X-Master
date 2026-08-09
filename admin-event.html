@@ -69,6 +69,7 @@ let state = {
   activeTab: 'overview', selectedRoundId: null,
   registrations: [], holes: [], pools: [], conflicts: [],
 };
+let resetPinMessage = null;
 
 async function api(path, opts) {
   const res = await fetch(path, {
@@ -185,6 +186,10 @@ async function renderRegistrations(el) {
   el.innerHTML = `
     <div class="card">
       <h3>Registreerumised (${state.registrations.length})</h3>
+      ${resetPinMessage ? `<div style="background:rgba(79,191,130,0.1); border:1px solid var(--birdie); padding:12px; border-radius:8px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="color:var(--birdie); font-family:var(--font-display); font-weight:600; font-size:13px;">${resetPinMessage}</span>
+        <span id="dismissPinMsg" style="cursor:pointer; color:var(--ink-faint); margin-left:10px;">✕</span>
+      </div>` : ''}
       ${state.registrations.length === 0 ? '<div class="empty-note">Registreerumisi pole veel.</div>' : `
       <table>
         <tr><th>Mängija</th><th>Divisjon</th><th>Staatus</th><th></th></tr>
@@ -193,7 +198,10 @@ async function renderRegistrations(el) {
             <td>${r.first_name} ${r.last_name}<br><span style="color:var(--ink-faint);font-size:11px;">#${r.player_number}</span></td>
             <td>${r.division_name}</td>
             <td><span class="status-pill ${r.status}">${r.status}</span></td>
-            <td>${r.status !== 'confirmed' ? `<button class="btn small" data-confirm="${r.id}">Kinnita</button>` : ''}</td>
+            <td style="white-space:nowrap;">
+              ${r.status !== 'confirmed' ? `<button class="btn small" data-confirm="${r.id}">Kinnita</button>` : ''}
+              <button class="btn small secondary" data-reset-pin="${r.player_id}" data-player-name="${r.first_name} ${r.last_name}" style="margin-left:4px;">Lähtesta PIN</button>
+            </td>
           </tr>`).join('')}
       </table>`}
     </div>
@@ -212,6 +220,15 @@ async function renderRegistrations(el) {
   document.querySelectorAll('[data-confirm]').forEach((btn) => {
     btn.onclick = async () => { await api(`/api/admin/registrations/${btn.dataset.confirm}`, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) }); renderTab(); };
   });
+  document.querySelectorAll('[data-reset-pin]').forEach((btn) => {
+    btn.onclick = async () => {
+      const result = await api(`/api/admin/players/${btn.dataset.resetPin}/reset-pin`, { method: 'POST' });
+      resetPinMessage = `Uus PIN mängijale ${btn.dataset.playerName}: ${result.newPin} — ütle see talle kohe, teine kord seda enam ei näe.`;
+      renderTab();
+    };
+  });
+  const dismissBtn = document.getElementById('dismissPinMsg');
+  if (dismissBtn) dismissBtn.onclick = () => { resetPinMessage = null; renderTab(); };
   document.getElementById('addPlayerBtn').onclick = async () => {
     try {
       await api('/api/admin/registrations/add-player', {
