@@ -60,6 +60,10 @@
   .badge.registered { background: rgba(79,191,130,0.15); color: var(--birdie); }
   .badge.confirmed { background: rgba(79,191,130,0.25); color: var(--birdie); }
   .badge.open { background: rgba(255,107,53,0.15); color: var(--accent); }
+  .badge.registration_open { background: rgba(79,191,130,0.15); color: var(--birdie); }
+  .badge.live { background: rgba(255,107,53,0.15); color: var(--accent); }
+  .badge.registration_closed { background: rgba(255,107,53,0.1); color: var(--ink-dim); }
+  .badge.finished, .badge.archived { background: rgba(234,242,238,0.08); color: var(--ink-faint); }
   .empty-note { color: var(--ink-faint); font-size: 13px; padding: 8px 0; }
 
   .top-user { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -251,6 +255,7 @@ function renderDashboard() {
   const upcoming = state.registrations.filter((r) => !['finished', 'archived'].includes(r.event_status));
   const past = state.registrations.filter((r) => ['finished', 'archived'].includes(r.event_status));
   const openToRegister = state.events.filter((e) => e.status === 'registration_open' && !registeredEventIds.has(e.id));
+  const allBrowsable = [...state.events].sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
 
   const color = avatarColor(state.player.first_name + state.player.last_name);
 
@@ -296,6 +301,11 @@ function renderDashboard() {
       ${openToRegister.length === 0 ? '<div class="empty-note">Hetkel avatud registreerimisi pole.</div>' : openToRegister.map(rowOpen).join('')}
     </div>
 
+    <h2>Kõik võistlused</h2>
+    <div class="card">
+      ${allBrowsable.length === 0 ? '<div class="empty-note">Ühtegi võistlust pole veel.</div>' : allBrowsable.map(rowBrowse).join('')}
+    </div>
+
     <h2>Toimunud võistlused</h2>
     <div class="card">
       ${past.length === 0 ? '<div class="empty-note">Ajalugu puudub.</div>' : past.map(rowPast).join('')}
@@ -331,6 +341,13 @@ function rowOpen(e) {
     <div><div class="event-name">${e.name}</div><div class="event-meta">${fmtDate(e.start_date)}${e.location ? ' · ' + e.location : ''}</div></div>
     <button class="btn small" data-register="${e.id}" data-name="${e.name}">Registreeru</button>
   </div>`;
+}
+
+function rowBrowse(e) {
+  return `<a href="/event?slug=${e.slug}" class="event-row" style="text-decoration:none; color:inherit;">
+    <div><div class="event-name">${e.name}</div><div class="event-meta">${fmtDate(e.start_date)}${e.location ? ' · ' + e.location : ''}</div></div>
+    <span class="badge ${e.status}">${e.status.replace('_',' ')}</span>
+  </a>`;
 }
 
 const regModal = document.getElementById('regModal');

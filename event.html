@@ -66,7 +66,7 @@ async function load() {
     }
   }
 
-  if (token && state.myRegistration) {
+  if (token) {
     for (const round of state.rounds) {
       const pRes = await fetch(`/api/pools/round/${round.id}`, { headers: { Authorization: `Bearer ${token}` } });
       if (pRes.ok) state.poolsByRound[round.id] = await pRes.json();
@@ -94,7 +94,7 @@ function render() {
         state.registrations.map((r) => `<div class="reg-row"><span>${r.first_name} ${r.last_name} · ${r.division_name}</span><span class="status-pill ${r.status}">${r.status}</span></div>`).join('')}
     </div>
 
-    ${token && state.myRegistration ? state.rounds.map(renderRoundPools).join('') : ''}
+    ${token ? state.rounds.map(renderRoundPools).join('') : ''}
   `;
 
   document.querySelectorAll('[data-join]').forEach((btn) => btn.onclick = () => joinPool(btn.dataset.join, btn.dataset.round));
@@ -107,11 +107,13 @@ function renderRoundPools(round) {
     return `<h2>${round.name || 'Round ' + round.round_number} — Poolid</h2><div class="card empty-note">Poole pole veel avatud.</div>`;
   }
   const myPoolId = poolData.myPoolId;
+  const isRegistered = !!state.myRegistration;
 
   return `
     <h2>${round.name || 'Round ' + round.round_number} — Poolid</h2>
     <div class="card">
       ${myPoolId ? `<a href="/scorecard?pool=${myPoolId}" class="btn full">▶ Ava minu scorecard</a>` : ''}
+      ${!isRegistered ? `<div class="empty-note" style="margin-bottom:10px;">Registreeru, et endale pool valida.</div>` : ''}
       <div style="margin-top:${myPoolId ? '14px' : '0'};">
         ${poolData.pools.map((p) => `
           <div class="pool-box ${p.id === myPoolId ? 'mine' : ''}">
@@ -120,7 +122,7 @@ function renderRoundPools(round) {
               <span class="pool-count">${p.players.length}${p.max_players ? '/' + p.max_players : ''} mängijat</span>
             </div>
             <div class="pool-members">${p.players.map((pl) => pl.first_name + ' ' + pl.last_name).join(', ') || 'Tühi'}</div>
-            ${p.id === myPoolId
+            ${!isRegistered ? '' : p.id === myPoolId
               ? `<button class="btn secondary full" data-leave="${p.id}" data-round="${round.id}">Lahku sellest poolist</button>`
               : (myPoolId ? '' : (p.isFull ? `<div class="empty-note" style="margin-top:8px;">Täis</div>` : `<button class="btn full" data-join="${p.id}" data-round="${round.id}">Liitu selle pooliga</button>`))
             }
