@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -10,16 +11,35 @@ const eventRoutes = require('./events');
 const adminEventRoutes = require('./adminEvents');
 const registrationRoutes = require('./registrations');
 const adminRegistrationRoutes = require('./adminRegistrations');
+const adminPoolRoutes = require('./adminPools');
+const scoreRoutes = require('./scores');
+const adminScoreRoutes = require('./adminScores');
+const leaderboardRoutes = require('./leaderboard');
 const { errorHandler } = require('./errorHandler');
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+            fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            connectSrc: ["'self'"],
+            imgSrc: ["'self'", 'data:'],
+        },
+    },
+}));
 app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
     res.json({ name: 'Disc Golf Scoring System API', status: 'running' });
+});
+
+app.get('/leaderboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'leaderboard.html'));
 });
 
 app.use('/api/health', healthRoutes);
@@ -29,6 +49,10 @@ app.use('/api/events', eventRoutes);
 app.use('/api/admin/events', adminEventRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/admin/registrations', adminRegistrationRoutes);
+app.use('/api/admin/pools', adminPoolRoutes);
+app.use('/api/scorecard', scoreRoutes);
+app.use('/api/admin/scores', adminScoreRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 
 // 404 käsitleja - peab tulema pärast kõiki route'e
 app.use((req, res) => {
