@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Võistlused</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #0a1512; --bg-panel: #0f1e1a; --bg-panel-2: #142c25;
+    --ink: #eaf2ee; --ink-dim: #7fa396; --ink-faint: #4d6a60;
+    --line: rgba(234, 242, 238, 0.09); --accent: #ff6b35;
+    --birdie: #4fbf82; --bogey: #e8974a; --double: #d9534f;
+    --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg-deep); color: var(--ink); font-family: var(--font-body); min-height: 100vh; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 60px; }
+  .card { background: var(--bg-panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  h1 { font-family: var(--font-display); font-size: 24px; margin: 0 0 16px; }
+  h2 { font-family: var(--font-display); font-size: 14px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; margin: 24px 0 10px; }
+  label { display: block; font-size: 12px; color: var(--ink-dim); margin-bottom: 5px; margin-top: 12px; }
+  input, select {
+    width: 100%; background: var(--bg-panel-2); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--font-body); font-size: 14.5px; padding: 10px 12px; border-radius: 8px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn { background: var(--accent); color: #1a0e08; border: none; font-family: var(--font-display); font-weight: 700; font-size: 13.5px; padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+  .btn.secondary { background: var(--bg-panel-2); color: var(--ink); border: 1px solid var(--line); }
+  .btn.full { width: 100%; margin-top: 16px; }
+  .error-msg { color: var(--double); font-size: 13px; margin-top: 10px; min-height: 14px; }
+  .event-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .event-row:last-child { border-bottom: none; }
+  .event-row:hover { opacity: 0.85; }
+  .event-name { font-family: var(--font-display); font-weight: 600; font-size: 15px; }
+  .event-meta { font-size: 12px; color: var(--ink-faint); }
+  .status-pill { font-size: 10.5px; font-family: var(--font-display); font-weight: 700; padding: 4px 10px; border-radius: 100px; letter-spacing: 0.03em; text-transform: uppercase; }
+  .status-pill.draft { background: rgba(127,163,150,0.15); color: var(--ink-dim); }
+  .status-pill.registration_open { background: rgba(79,191,130,0.15); color: var(--birdie); }
+  .status-pill.registration_closed, .status-pill.live { background: rgba(255,107,53,0.15); color: var(--accent); }
+  .status-pill.finished, .status-pill.archived { background: rgba(234,242,238,0.08); color: var(--ink-faint); }
+  .empty-note { color: var(--ink-faint); font-size: 13px; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; }
+  .logout-link { color: var(--ink-faint); font-size: 12px; cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const app = document.getElementById('app');
+let state = { token: localStorage.getItem('dg_admin_token'), events: [] };
+
+function renderLogin(errorMsg) {
+  app.innerHTML = `
+    <div class="card">
+      <h1>Admin</h1>
+      <label>Email</label><input id="email" type="email">
+      <label>Parool</label><input id="password" type="password">
+      <button class="btn full" id="loginBtn">Logi sisse</button>
+      <div class="error-msg">${errorMsg || ''}</div>
+    </div>`;
+  document.getElementById('loginBtn').onclick = doLogin;
+}
+
+async function doLogin() {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  try {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) return renderLogin(data.error);
+    state.token = data.token;
+    localStorage.setItem('dg_admin_token', data.token);
+    loadEvents();
+  } catch (e) { renderLogin('Ühendus ebaõnnestus.'); }
+}
+function logout() { localStorage.removeItem('dg_admin_token'); state.token = null; renderLogin(); }
+
+function slugify(s) {
+  return s.toLowerCase().trim()
+    .replace(/[äàáâã]/g, 'a').replace(/[öòóôõ]/g, 'o').replace(/[üùúû]/g, 'u')
+    .replace(/[õ]/g, 'o').replace(/[š]/g, 's').replace(/[ž]/g, 'z')
+    .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+async function loadEvents() {
+  app.innerHTML = `<div class="card">Laen...</div>`;
+  try {
+    const res = await fetch('/api/admin/events', { headers: { Authorization: `Bearer ${state.token}` } });
+    if (res.status === 401) return logout();
+    state.events = (await res.json()).events;
+    renderEvents();
+  } catch (e) {
+    app.innerHTML = `<div class="card">Ühendus ebaõnnestus. <button class="btn secondary" onclick="loadEvents()">Proovi uuesti</button></div>`;
+  }
+}
+
+function renderEvents() {
+  app.innerHTML = `
+    <div class="topbar"><h1>Võistlused</h1><div class="logout-link" id="logoutBtn">Logi välja</div></div>
+
+    <div class="card">
+      ${state.events.length === 0 ? '<div class="empty-note">Ühtegi võistlust pole veel loodud.</div>' : state.events.map(eventRow).join('')}
+    </div>
+
+    <h2>Loo uus võistlus</h2>
+    <div class="card">
+      <label>Nimi</label>
+      <input id="newName" placeholder="Tallinn Open 2027">
+      <label>Slug (URL, genereeritakse automaatselt)</label>
+      <input id="newSlug" placeholder="tallinn-open-2027">
+      <label>Asukoht</label>
+      <input id="newLocation" placeholder="Tallinn">
+      <div class="row2">
+        <div><label>Algus</label><input id="newStart" type="date"></div>
+        <div><label>Lõpp</label><input id="newEnd" type="date"></div>
+      </div>
+      <button class="btn full" id="createBtn">Loo võistlus</button>
+      <div class="error-msg" id="createError"></div>
+    </div>
+  `;
+  document.getElementById('logoutBtn').onclick = logout;
+  document.getElementById('createBtn').onclick = createEvent;
+  document.getElementById('newName').addEventListener('input', (e) => {
+    document.getElementById('newSlug').value = slugify(e.target.value);
+  });
+  document.querySelectorAll('[data-event-id]').forEach((el) => {
+    el.onclick = () => { location.href = `/admin-event?event=${el.dataset.eventId}`; };
+  });
+}
+
+function eventRow(e) {
+  return `<div class="event-row" data-event-id="${e.id}">
+    <div><div class="event-name">${e.name}</div><div class="event-meta">${e.start_date ? new Date(e.start_date).toLocaleDateString('et-EE') : ''} ${e.location ? '· ' + e.location : ''}</div></div>
+    <span class="status-pill ${e.status}">${e.status.replace('_',' ')}</span>
+  </div>`;
+}
+
+async function createEvent() {
+  const name = document.getElementById('newName').value;
+  const slug = document.getElementById('newSlug').value;
+  const location = document.getElementById('newLocation').value;
+  const startDate = document.getElementById('newStart').value;
+  const endDate = document.getElementById('newEnd').value;
+  if (!name || !slug || !startDate || !endDate) {
+    document.getElementById('createError').textContent = 'Nimi, slug, algus- ja lõppkuupäev on kohustuslikud.';
+    return;
+  }
+  try {
+    const res = await fetch('/api/admin/events', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+      body: JSON.stringify({ name, slug, location, startDate, endDate }),
+    });
+    const data = await res.json();
+    if (!res.ok) { document.getElementById('createError').textContent = data.error; return; }
+    location.href = `/admin-event?event=${data.event.id}`;
+  } catch (e) { document.getElementById('createError').textContent = 'Ühendus ebaõnnestus.'; }
+}
+
+if (state.token) loadEvents(); else renderLogin();
+</script>
+</body>
+</html>

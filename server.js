@@ -50,6 +50,14 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+app.get('/admin-event', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin-event.html'));
+});
+
 app.use('/api/health', healthRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/admin', adminRoutes);
