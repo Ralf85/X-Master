@@ -51,4 +51,27 @@ router.post('/:playerId/reset-pin', asyncHandler(async (req, res) => {
     res.json({ player: rows[0], newPin });
 }));
 
+// ---------------------------------------------------------------------------
+// GET /api/admin/players/export-emails
+// Laeb kõigi mängijate emailid CSV-na alla (nt uudiskirja tööriista jaoks).
+// ---------------------------------------------------------------------------
+router.get('/export-emails', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+        `SELECT player_number, first_name, last_name, email
+         FROM players
+         WHERE email IS NOT NULL AND email != ''
+         ORDER BY first_name`
+    );
+    const header = 'Player ID,Eesnimi,Perekonnanimi,Email\n';
+    const csvRows = rows.map((r) =>
+        [r.player_number, r.first_name, r.last_name, r.email]
+            .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+            .join(',')
+    ).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="mangijate-emailid.csv"');
+    res.send('\uFEFF' + header + csvRows); // BOM aitab Excelil õigesti ä/ö/ü kuvada
+}));
+
 module.exports = router;
