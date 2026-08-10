@@ -17,8 +17,8 @@ function signPlayerToken(player) {
 }
 
 function publicPlayer(row) {
-    // Ei tagasta kunagi pin_hash ega recovery_code_hash
-    const { pin_hash, recovery_code_hash, ...safe } = row;
+    // Ei tagasta kunagi pin_hash, recovery_code_hash ega toorest pildi binaari
+    const { pin_hash, recovery_code_hash, profile_image_data, profile_image_mimetype, ...safe } = row;
     return safe;
 }
 
@@ -193,15 +193,18 @@ router.post('/me/change-pin', playerAuth, asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/players/me/profile-image
-// Punkt 9: profiilipildi üleslaadimine, max 5MB, PNG/JPG/WEBP
+// Punkt 9: profiilipildi üleslaadimine, max 5MB, PNG/JPG/WEBP.
+// Pilt salvestatakse otse andmebaasi (mitte failisüsteemi), et vältida
+// sõltuvust Railway Volume seadistusest.
 // ---------------------------------------------------------------------------
 router.post('/me/profile-image', playerAuth, upload.single('image'), asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Pilti ei leitud.' });
 
-    const publicUrl = `/uploads/${req.file.filename}`;
+    const publicUrl = `/api/players/${req.player.id}/profile-image?v=${Date.now()}`;
     const { rows } = await pool.query(
-        'UPDATE players SET profile_image_url = $1 WHERE id = $2 RETURNING *',
-        [publicUrl, req.player.id]
+        `UPDATE players SET profile_image_url = $1, profile_image_data = $2, profile_image_mimetype = $3
+         WHERE id = $4 RETURNING *`,
+        [publicUrl, req.file.buffer, req.file.mimetype, req.player.id]
     );
     res.json({ player: publicPlayer(rows[0]) });
 }));
@@ -216,12 +219,29 @@ router.use('/me/profile-image', (err, req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/players/:playerId/profile-image
+// Avalik (ei nõua sisselogimist, nt leaderboard'il kuvamiseks). Loeb pildi
+// otse andmebaasist ja saadab selle õige Content-Type'iga.
+// ---------------------------------------------------------------------------
+router.get('/:playerId/profile-image', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+        'SELECT profile_image_data, profile_image_mimetype FROM players WHERE id = $1',
+        [req.params.playerId]
+    );
+    if (!rows[0] || !rows[0].profile_image_data) return res.status(404).send('Pilti ei leitud.');
+    res.set('Content-Type', rows[0].profile_image_mimetype);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(rows[0].profile_image_data);
+}));
+
+// ---------------------------------------------------------------------------
 // DELETE /api/players/me/profile-image
 // Punkt 9: "EEMALDA PILT"
 // ---------------------------------------------------------------------------
 router.delete('/me/profile-image', playerAuth, asyncHandler(async (req, res) => {
     const { rows } = await pool.query(
-        'UPDATE players SET profile_image_url = NULL WHERE id = $1 RETURNING *',
+        `UPDATE players SET profile_image_url = NULL, profile_image_data = NULL, profile_image_mimetype = NULL
+         WHERE id = $1 RETURNING *`,
         [req.player.id]
     );
     res.json({ player: publicPlayer(rows[0]) });

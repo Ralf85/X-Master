@@ -138,6 +138,23 @@
     color: var(--ink-dim);
     font-family: var(--font-display);
   }
+  .score-summary-list {
+    text-align: left;
+    max-width: 260px;
+    margin: 18px auto;
+    background: var(--bg-panel-2);
+    border-radius: 12px;
+    padding: 6px 16px;
+  }
+  .score-summary-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--line);
+    font-family: var(--font-body); font-size: 13.5px; color: var(--ink);
+  }
+  .score-summary-row:last-child { border-bottom: none; }
+  .score-summary-row .strokes {
+    font-family: var(--font-display); font-weight: 700; font-size: 15px;
+  }
 
   .nav-row {
     display: flex; gap: 10px;
@@ -473,7 +490,16 @@ function renderHole() {
   if (roundFinished) {
     body = `<div class="done-card">🏁 Ring on läbitud!<br><span style="font-size:12px">Kõik tulemused on salvestatud.</span></div>`;
   } else if (complete) {
-    body = `<div class="done-card">✓ Kõik tulemused sisestatud<br><span style="font-size:12px">Vajuta "Järgmine rada"</span></div>`;
+    const summaryRows = state.players.map((p) => {
+      const s = state.scores[scoreKey(p.player_id, hole.id)];
+      const strokesColor = !s ? 'var(--ink-faint)' : s.status === 'conflict' ? 'var(--double)' : 'var(--ink)';
+      return `<div class="score-summary-row"><span>${p.first_name}</span><span class="strokes" style="color:${strokesColor};">${s ? s.strokes : '–'}</span></div>`;
+    }).join('');
+    body = `<div class="done-card">
+      ✓ Kõik tulemused sisestatud
+      <div class="score-summary-list">${summaryRows}</div>
+      <span style="font-size:12px">Vajuta "Järgmine rada"</span>
+    </div>`;
   } else {
     const player = state.players[state.playerIdx];
     const buttons = generateButtons(hole.par);
@@ -534,11 +560,33 @@ function renderHole() {
   if (nextBtn) nextBtn.onclick = goNextHole;
   document.querySelectorAll('.score-btn').forEach((btn) => {
     btn.onclick = () => {
+      playClickSound();
       if (btn.dataset.more) openMoreModal();
       else handleScore(Number(btn.dataset.strokes));
     };
   });
   updateSyncIndicator();
+}
+
+// ---------------------------------------------------------------------------
+// Väike "klõps" heli nupuvajutusel - genereeritud Web Audio API-ga,
+// ei vaja välist helifaili. Vaikselt ignoreerib, kui heli pole saadaval.
+// ---------------------------------------------------------------------------
+let audioCtx = null;
+function playClickSound() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 720;
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.08);
+  } catch (e) { /* heli pole saadaval, ignoreeri */ }
 }
 
 async function handleScore(strokes) {

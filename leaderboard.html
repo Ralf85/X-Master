@@ -54,6 +54,8 @@
     flex-wrap: wrap;
   }
 
+  .back-link { color: var(--ink-faint); font-size: 12px; text-decoration: none; display: inline-block; margin-bottom: 10px; cursor: pointer; }
+
   .live-pill {
     display: inline-flex;
     align-items: center;
@@ -179,8 +181,8 @@
     background: var(--bg-panel);
     border-right: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
-    padding: 9px 14px;
-    min-width: 230px;
+    padding: 9px 12px;
+    min-width: 158px;
   }
   tr:nth-child(even) .player-td { background: #0d1c18; }
   tr:nth-child(even) .score-td { background: rgba(255,255,255,0.012); }
@@ -188,14 +190,14 @@
   .player-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
   }
   .rank {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 14px;
     color: var(--ink-faint);
-    width: 20px;
+    width: 16px;
     text-align: right;
     flex-shrink: 0;
   }
@@ -209,9 +211,18 @@
     flex-shrink: 0;
   }
   .name-block { min-width: 0; flex: 1; }
-  .name {
-    font-size: 13.5px;
-    font-weight: 500;
+  .firstname {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .lastname-row {
+    font-size: 10.5px;
+    color: var(--ink-dim);
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -315,6 +326,7 @@
 
 <div class="topbar">
   <div>
+    <a class="back-link" id="backLink">← Tagasi</a>
     <div class="live-pill"><span class="live-dot"></span>LIVE</div>
     <h1 id="eventTitle">Laen...</h1>
     <div class="subtitle" id="roundSubtitle"></div>
@@ -422,8 +434,8 @@ function render(data) {
           <div class="rank">${p.thru > 0 ? i + 1 : '–'}</div>
           ${avatarHtml}
           <div class="name-block">
-            <div class="name">${p.firstName} ${p.lastName}</div>
-            <div class="division">${p.divisionName}</div>
+            <div class="firstname">${p.firstName}</div>
+            <div class="lastname-row">${p.lastName} <span class="division">· ${p.divisionName}</span></div>
           </div>
           <div class="totals">
             <div class="rel-score ${relClass}">${fmtRelative(p.relativeToPar)}</div>
@@ -473,6 +485,16 @@ async function load() {
     }
     const data = await res.json();
     currentRoundId = data.round.id;
+    const backLink = document.getElementById('backLink');
+    if (backLink && !backLink.dataset.wired) {
+      backLink.dataset.wired = '1';
+      if (data.round.slug) {
+        backLink.href = `/event?slug=${data.round.slug}`;
+      } else {
+        backLink.href = 'javascript:void(0)';
+        backLink.onclick = () => history.back();
+      }
+    }
     render(data);
     wireParkClicks();
     document.getElementById('lastUpdated').textContent =

@@ -82,11 +82,8 @@
 <div class="modal-backdrop" id="regModal">
   <div class="modal-sheet">
     <h3 id="regEventName"></h3>
-    <p class="sub">Registreerimine kinnitatakse PIN-iga.</p>
     <label>Divisjon</label>
     <select id="regDivision"></select>
-    <label>PIN</label>
-    <input id="regPin" type="password" inputmode="numeric" placeholder="••••">
     <div class="error-msg" id="regError"></div>
     <div style="display:flex; gap:10px; margin-top:16px;">
       <button class="btn secondary full" id="regCancel">Loobu</button>
@@ -356,7 +353,6 @@ async function openRegisterModal(eventId, eventName) {
   regEventId = eventId;
   document.getElementById('regEventName').textContent = eventName;
   document.getElementById('regError').textContent = '';
-  document.getElementById('regPin').value = '';
 
   const event = state.events.find((e) => String(e.id) === String(eventId));
   const res = await fetch(`/api/events/${event.slug}`);
@@ -369,11 +365,10 @@ async function openRegisterModal(eventId, eventName) {
 document.getElementById('regCancel').onclick = () => regModal.classList.remove('show');
 document.getElementById('regConfirm').onclick = async () => {
   const divisionId = document.getElementById('regDivision').value;
-  const pin = document.getElementById('regPin').value;
   try {
     const res = await fetch(`/api/registrations/${regEventId}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-      body: JSON.stringify({ divisionId: Number(divisionId), pin }),
+      body: JSON.stringify({ divisionId: Number(divisionId) }),
     });
     const data = await res.json();
     if (!res.ok) { document.getElementById('regError').textContent = data.error; return; }

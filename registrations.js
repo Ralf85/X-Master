@@ -2,24 +2,19 @@ const express = require('express');
 const pool = require('./db');
 const playerAuth = require('./playerAuth');
 const { asyncHandler } = require('./errorHandler');
-const { comparePin } = require('./pin');
 
 const router = express.Router();
 router.use(playerAuth);
 
 // ---------------------------------------------------------------------------
 // POST /api/registrations/:eventId
-// Punkt 13: registreerimine, kinnitatakse PIN-iga
+// Registreerimine - mängija on juba sisselogimisega autenditud, PIN-i
+// uuesti ei küsita (see nõue eemaldati).
 // ---------------------------------------------------------------------------
 router.post('/:eventId', asyncHandler(async (req, res) => {
-    const { divisionId, pin } = req.body;
-    if (!divisionId || !pin) {
-        return res.status(400).json({ error: 'divisionId ja pin on kohustuslikud.' });
-    }
-
-    const { rows: playerRows } = await pool.query('SELECT pin_hash FROM players WHERE id = $1', [req.player.id]);
-    if (!(await comparePin(pin, playerRows[0]?.pin_hash))) {
-        return res.status(401).json({ error: 'Vale PIN.' });
+    const { divisionId } = req.body;
+    if (!divisionId) {
+        return res.status(400).json({ error: 'divisionId on kohustuslik.' });
     }
 
     const { rows: eventRows } = await pool.query('SELECT * FROM events WHERE id = $1', [req.params.eventId]);
