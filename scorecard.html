@@ -155,6 +155,14 @@
   .score-summary-row .strokes {
     font-family: var(--font-display); font-weight: 700; font-size: 15px;
   }
+  .joke-corner {
+    max-width: 280px; margin: 4px auto 18px; padding: 12px 16px;
+    background: rgba(255,107,53,0.08); border: 1px dashed rgba(255,107,53,0.35);
+    border-radius: 12px; display: none; align-items: flex-start; gap: 10px; text-align: left;
+  }
+  .joke-corner:not(:empty) { display: flex; }
+  .joke-icon { font-size: 18px; flex-shrink: 0; }
+  .joke-text { font-family: var(--font-body); font-size: 12.5px; color: var(--ink-dim); line-height: 1.4; }
 
   .nav-row {
     display: flex; gap: 10px;
@@ -191,6 +199,19 @@
   }
   .toast.show { display: block; }
   .sync-note { text-align: center; font-size: 11px; color: var(--ink-faint); margin-top: 10px; }
+
+  .announcement-banner {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+    background: var(--accent); color: #1a0e08;
+    display: none; align-items: center; gap: 12px;
+    padding: 14px 16px calc(14px + env(safe-area-inset-top)) 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .announcement-banner.show { display: flex; animation: slideDown 0.25s ease-out; }
+  @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+  .announcement-icon { font-size: 20px; flex-shrink: 0; }
+  .announcement-text { flex: 1; font-size: 14px; font-weight: 600; line-height: 1.35; }
+  .announcement-close { cursor: pointer; font-size: 16px; padding: 4px; flex-shrink: 0; opacity: 0.7; }
 
   /* --- More-strokes picker --- */
   .modal-backdrop {
@@ -230,6 +251,12 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="announcement-banner" id="announcementBanner">
+  <div class="announcement-icon">📢</div>
+  <div class="announcement-text" id="announcementText"></div>
+  <div class="announcement-close" id="announcementClose">✕</div>
+</div>
 
 <script>
 const API = '';
@@ -329,6 +356,39 @@ async function doLogin() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Kiirteated adminilt (nt "Ring peatatud äikese tõttu") - polli't taustal.
+// ---------------------------------------------------------------------------
+function announcementStorageKey() { return `dg_last_announcement_${state.pool?.event_id}`; }
+
+async function checkAnnouncements() {
+  if (!state.pool?.event_id) return;
+  try {
+    const res = await fetch(`${API}/api/announcements/${state.pool.event_id}/latest`);
+    const data = await res.json();
+    if (!data.announcement) return;
+    const seenId = localStorage.getItem(announcementStorageKey());
+    if (String(data.announcement.id) !== seenId) {
+      document.getElementById('announcementText').textContent = data.announcement.message;
+      const banner = document.getElementById('announcementBanner');
+      banner.dataset.currentId = data.announcement.id;
+      banner.classList.add('show');
+    }
+  } catch (e) { /* ei ole kriitiline, proovime järgmisel korral uuesti */ }
+}
+document.getElementById('announcementClose').onclick = () => {
+  const banner = document.getElementById('announcementBanner');
+  localStorage.setItem(announcementStorageKey(), banner.dataset.currentId);
+  banner.classList.remove('show');
+};
+
+let announcementInterval = null;
+function startAnnouncementPolling() {
+  checkAnnouncements();
+  if (announcementInterval) clearInterval(announcementInterval);
+  announcementInterval = setInterval(checkAnnouncements, 15000);
+}
+
 async function loadScorecard() {
   if (!poolId) {
     app.innerHTML = `<div class="login-card"><h1>Puudub grupp</h1><p>Lingile peab olema lisatud ?pool=ID</p></div>`;
@@ -350,6 +410,12 @@ async function loadScorecard() {
     state.scores = {};
     for (const s of data.scores) state.scores[scoreKey(s.player_id, s.hole_id)] = s;
 
+    if (state.playOrder.length === 0) {
+      app.innerHTML = `<div class="done-card">Radu pole veel lisatud.<br><span style="font-size:12px">Korraldaja peab need enne lisama.</span></div>`;
+      startAnnouncementPolling();
+      return;
+    }
+
     // Kui eelmisest korrast on veel salvestamata tulemusi kohapeal, näita neid kohe
     for (const item of getPendingQueue()) {
       state.scores[scoreKey(item.playerId, item.holeId)] = { hole_id: item.holeId, player_id: item.playerId, strokes: item.strokes, status: 'pending_sync' };
@@ -358,6 +424,7 @@ async function loadScorecard() {
     resumePosition();
     renderHole();
     flushQueue();
+    startAnnouncementPolling();
   } catch (e) {
     app.innerHTML = `<div class="done-card">Ühendus ebaõnnestus. <br><button class="nav-btn" onclick="loadScorecard()">Proovi uuesti</button></div>`;
   }
@@ -498,6 +565,7 @@ function renderHole() {
     body = `<div class="done-card">
       ✓ Kõik tulemused sisestatud
       <div class="score-summary-list">${summaryRows}</div>
+      <div class="joke-corner" id="jokeCorner"></div>
       <span style="font-size:12px">Vajuta "Järgmine rada"</span>
     </div>`;
   } else {
@@ -566,6 +634,27 @@ function renderHole() {
     };
   });
   updateSyncIndicator();
+  if (complete && !roundFinished) loadJokeCorner();
+}
+
+// ---------------------------------------------------------------------------
+// Naljanurk raja lõpus - juhuslik anekdoodi-mall, kohatäitjad {P1},{P2}...
+// asendatakse selle pooli päris mängijate eesnimedega.
+// ---------------------------------------------------------------------------
+async function loadJokeCorner() {
+  const el = document.getElementById('jokeCorner');
+  if (!el) return;
+  try {
+    const res = await fetch(`${API}/api/jokes/random`);
+    const data = await res.json();
+    if (!data.joke) return;
+    let text = data.joke.template_text;
+    state.players.forEach((p, i) => {
+      text = text.split(`{P${i + 1}}`).join(p.first_name);
+    });
+    text = text.replace(/\{P\d+\}/g, '');
+    el.innerHTML = `<div class="joke-icon">😄</div><div class="joke-text">${text}</div>`;
+  } catch (e) { /* pole kriitiline, jäta lihtsalt näitamata */ }
 }
 
 // ---------------------------------------------------------------------------

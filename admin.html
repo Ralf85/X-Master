@@ -89,6 +89,26 @@ function slugify(s) {
     .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
+async function loadJokesList() {
+  const listEl = document.getElementById('jokesList');
+  listEl.innerHTML = 'Laen...';
+  const res = await fetch('/api/admin/jokes', { headers: { Authorization: `Bearer ${state.token}` } });
+  const data = await res.json();
+  listEl.innerHTML = data.jokes.length === 0
+    ? '<div class="empty-note">Ühtegi anekdooti pole veel lisatud.</div>'
+    : data.jokes.map((j) => `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);">
+          <span style="font-size:13px; color:var(--ink-dim);">${j.template_text}</span>
+          <span data-del-joke="${j.id}" style="cursor:pointer; color:var(--double); flex-shrink:0;">✕</span>
+        </div>`).join('');
+  document.querySelectorAll('[data-del-joke]').forEach((el) => {
+    el.onclick = async () => {
+      await fetch(`/api/admin/jokes/${el.dataset.delJoke}`, { method: 'DELETE', headers: { Authorization: `Bearer ${state.token}` } });
+      loadJokesList();
+    };
+  });
+}
+
 async function loadEvents() {
   app.innerHTML = `<div class="card">Laen...</div>`;
   try {
@@ -104,14 +124,30 @@ async function loadEvents() {
 function renderEvents() {
   app.innerHTML = `
     <div class="topbar"><h1>Võistlused</h1><div class="logout-link" id="logoutBtn">Logi välja</div></div>
-    <div class="nav-links" style="display:flex; align-items:center; gap:16px; margin-bottom:18px;">
+    <div class="nav-links" style="display:flex; align-items:center; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
       <a href="/admin" style="color:var(--accent); text-decoration:none; font-size:13px; font-family:var(--font-display); font-weight:600;">Võistlused</a>
       <a href="/admin-users" style="color:var(--ink-dim); text-decoration:none; font-size:13px; font-family:var(--font-display); font-weight:600;">Kasutajad</a>
-      <button id="toggleCreateBtn" class="btn small" style="margin-left:auto;">+ Loo võistlus</button>
+      <button id="toggleJokesBtn" class="btn small secondary" style="margin-left:auto;">😄 Anekdoodid</button>
+      <button id="toggleCreateBtn" class="btn small">+ Loo võistlus</button>
     </div>
 
     <div class="card">
       ${state.events.length === 0 ? '<div class="empty-note">Ühtegi võistlust pole veel loodud.</div>' : state.events.map(eventRow).join('')}
+    </div>
+
+    <div id="jokesSection" style="display:none;">
+      <h2>😄 Anekdoodi-mallid</h2>
+      <div class="card">
+        <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-4px;">
+          Kuvatakse mängijatele raja lõpus. Kasuta {P1}, {P2}, {P3}, {P4}... kohatäitjaid -
+          need asendatakse automaatselt selle pooli päris mängijate eesnimedega.<br>
+          Näide: "{P1}, {P2}, {P3} ja {P4} läksid baari..."
+        </p>
+        <textarea id="newJokeText" placeholder="{P1}, {P2}, {P3} ja {P4} läksid baari..." style="width:100%; min-height:70px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:10px 12px; font-family:var(--font-body); font-size:14px; resize:vertical;"></textarea>
+        <button class="btn full" id="addJokeBtn" style="margin-top:8px;">Lisa anekdoot</button>
+        <div class="error-msg" id="jokeError"></div>
+        <div id="jokesList" style="margin-top:16px;"></div>
+      </div>
     </div>
 
     <div id="createEventSection" style="display:none;">
@@ -132,6 +168,25 @@ function renderEvents() {
       </div>
     </div>
   `;
+  document.getElementById('toggleJokesBtn').onclick = async () => {
+    const section = document.getElementById('jokesSection');
+    const isHidden = section.style.display === 'none';
+    section.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) await loadJokesList();
+  };
+  document.getElementById('addJokeBtn').onclick = async () => {
+    const text = document.getElementById('newJokeText').value.trim();
+    document.getElementById('jokeError').textContent = '';
+    if (!text) return;
+    try {
+      await fetch('/api/admin/jokes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+        body: JSON.stringify({ templateText: text }),
+      });
+      document.getElementById('newJokeText').value = '';
+      await loadJokesList();
+    } catch (e) { document.getElementById('jokeError').textContent = 'Ühendus ebaõnnestus.'; }
+  };
   document.getElementById('logoutBtn').onclick = logout;
   document.getElementById('createBtn').onclick = createEvent;
   document.getElementById('toggleCreateBtn').onclick = () => {
