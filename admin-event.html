@@ -277,7 +277,11 @@ async function renderRounds(el) {
 
   el.innerHTML += `
     <div class="card">
-      <h3>Rajad (${state.holes.length})</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h3 style="margin:0;">Rajad (${state.holes.length})</h3>
+        <button class="btn small" id="saveAllHoles" ${state.holes.length === 0 ? 'style="display:none;"' : ''}>Salvesta muudatused</button>
+      </div>
+      <div class="ok-msg" id="saveAllHolesStatus" style="min-height:16px; margin-top:6px;"></div>
       <table>
         <tr><th>#</th><th>Par</th><th>Park</th><th></th></tr>
         ${state.holes.map((h) => `
@@ -286,8 +290,7 @@ async function renderRounds(el) {
             <td><input type="number" class="editHp" value="${h.par}" style="width:60px;"></td>
             <td><select class="editHpark">${state.parks.map((p) => `<option value="${p.id}" ${p.id===h.park_id?'selected':''}>${p.name}</option>`).join('')}</select></td>
             <td style="white-space:nowrap;">
-              <button class="btn secondary small" data-save-hole="${h.id}">Salvesta muudatus</button>
-              <span style="cursor:pointer; color:var(--ink-faint); margin-left:6px;" data-delete-hole="${h.id}">✕</span>
+              <span style="cursor:pointer; color:var(--ink-faint);" data-delete-hole="${h.id}">✕</span>
             </td>
           </tr>`).join('') || ''}
       </table>
@@ -336,20 +339,8 @@ async function renderRounds(el) {
   document.getElementById('generateRange').onclick = generateRangeRows;
   document.getElementById('saveHoles').onclick = saveHoles;
   document.getElementById('bulkCreatePools').onclick = bulkCreatePools;
-  document.querySelectorAll('[data-save-hole]').forEach((btn) => {
-    btn.onclick = async () => {
-      const row = btn.closest('tr');
-      await api(`/api/admin/events/holes/${btn.dataset.saveHole}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          holeNumber: Number(row.querySelector('.editHn').value),
-          par: Number(row.querySelector('.editHp').value),
-          parkId: Number(row.querySelector('.editHpark').value),
-        }),
-      });
-      renderTab();
-    };
-  });
+  const saveAllBtn = document.getElementById('saveAllHoles');
+  if (saveAllBtn) saveAllBtn.onclick = saveAllHoles;
   document.querySelectorAll('[data-delete-hole]').forEach((x) => {
     x.onclick = async () => { await api(`/api/admin/events/holes/${x.dataset.deleteHole}`, { method: 'DELETE' }); renderTab(); };
   });
@@ -376,8 +367,13 @@ function renderPoolBuilder() {
 
   document.getElementById('poolGrid').innerHTML = state.pools.map((p) => `
     <div class="pool-drop" data-drop-zone="${p.id}" style="border:1px solid var(--line); border-radius:10px; padding:10px; min-height:90px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <strong style="font-size:13px;">Pool ${p.pool_number}</strong>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:6px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:3px;">
+          <span style="font-size:10.5px; color:var(--ink-faint);">Pool</span>
+          <input type="number" class="poolNumInput" data-pool-id="${p.id}" value="${p.pool_number}" style="width:46px; padding:3px 5px; font-size:12px;">
+          <span style="font-size:10.5px; color:var(--ink-faint); margin-left:4px;">Start</span>
+          <input type="number" class="poolStartInput" data-pool-id="${p.id}" value="${p.start_hole}" style="width:40px; padding:3px 5px; font-size:12px;">
+        </div>
         <span style="font-size:10.5px; color:${p.max_players && (p.players||[]).length >= p.max_players ? 'var(--bogey)' : 'var(--ink-faint)'};">
           ${(p.players||[]).length}${p.max_players ? '/'+p.max_players : ''}
         </span>
@@ -385,9 +381,37 @@ function renderPoolBuilder() {
       <div class="chip-list">
         ${(p.players || []).map((pl) => playerChip(pl.first_name, pl.last_name, pl.registration_id, pl.pool_player_id)).join('') || '<span class="empty-note" style="font-size:11px;">Lohista siia</span>'}
       </div>
+      <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+        <button class="btn secondary small" data-save-pool="${p.id}">Salvesta</button>
+        <span data-delete-pool="${p.id}" style="cursor:pointer; color:var(--double); font-size:11px;">Kustuta pool</span>
+      </div>
     </div>`).join('') || '<div class="empty-note">Loo kõigepealt vähemalt üks pool ülal.</div>';
 
   wireDragAndDrop();
+  document.querySelectorAll('[data-save-pool]').forEach((btn) => {
+    btn.onclick = async () => {
+      const poolId = btn.dataset.savePool;
+      const numInput = document.querySelector(`.poolNumInput[data-pool-id="${poolId}"]`);
+      const startInput = document.querySelector(`.poolStartInput[data-pool-id="${poolId}"]`);
+      await api(`/api/admin/pools/${poolId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ poolNumber: Number(numInput.value), startHole: Number(startInput.value) }),
+      });
+      const poolsData = await api(`/api/admin/pools/rounds/${state.selectedRoundId}`);
+      state.pools = poolsData.pools;
+      renderPoolBuilder();
+    };
+  });
+  document.querySelectorAll('[data-delete-pool]').forEach((el) => {
+    el.onclick = async () => {
+      const ok = confirm('Kustutada see pool? Mängijad, kes seal olid, lähevad tagasi sidumata mängijate nimekirja.');
+      if (!ok) return;
+      await api(`/api/admin/pools/${el.dataset.deletePool}`, { method: 'DELETE' });
+      const poolsData = await api(`/api/admin/pools/rounds/${state.selectedRoundId}`);
+      state.pools = poolsData.pools;
+      renderPoolBuilder();
+    };
+  });
 }
 
 function playerChip(first, last, registrationId, poolPlayerId) {
@@ -524,6 +548,40 @@ async function saveHoles() {
     await api(`/api/admin/events/rounds/${state.selectedRoundId}/holes`, { method: 'POST', body: JSON.stringify({ holes }) });
     renderTab();
   } catch (e) { document.getElementById('holesError').textContent = e.message; }
+}
+
+async function saveAllHoles() {
+  const statusEl = document.getElementById('saveAllHolesStatus');
+  const rows = [...document.querySelectorAll('[data-hole-row]')];
+  if (rows.length === 0) return;
+
+  statusEl.style.color = 'var(--ink-dim)';
+  let saved = 0;
+  const errors = [];
+  for (const row of rows) {
+    statusEl.textContent = `Salvestan... ${saved}/${rows.length}`;
+    const holeNumber = row.querySelector('.editHn').value;
+    try {
+      await api(`/api/admin/events/holes/${row.dataset.holeRow}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          holeNumber: Number(holeNumber),
+          par: Number(row.querySelector('.editHp').value),
+          parkId: Number(row.querySelector('.editHpark').value),
+        }),
+      });
+      saved++;
+    } catch (err) {
+      errors.push(`Rada ${holeNumber}: ${err.message}`);
+    }
+  }
+
+  statusEl.style.color = errors.length ? 'var(--double)' : 'var(--birdie)';
+  statusEl.textContent = errors.length
+    ? `Salvestatud ${saved}/${rows.length}. Vead: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? ' ...' : ''}`
+    : `✓ Kõik ${saved} rada salvestatud.`;
+
+  setTimeout(renderTab, errors.length ? 3000 : 900);
 }
 
 async function createPool() {
