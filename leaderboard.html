@@ -24,6 +24,8 @@
     --par-bg: #1c3a32;
     --bogey: #e8974a;
     --double: #d9534f;
+    --double-dark: #a13a37;
+    --blue: #5b9bd5;
     --double-ink: #fff;
     --pending: #16302a;
 
@@ -260,37 +262,30 @@
     font-variant-numeric: tabular-nums;
   }
   .badge.pending { color: var(--ink-faint); font-weight: 400; }
-  .badge.par {
-    border-radius: 7px;
-    background: var(--par-bg);
-    color: var(--ink);
+  .badge.stroke1 {
+    border-radius: 50%;
+    background: var(--eagle);
+    color: var(--bg-deep);
   }
-  .badge.birdie {
+  .badge.stroke2 {
     border-radius: 50%;
     background: var(--birdie);
     color: var(--birdie-ink);
   }
-  .badge.eagle {
-    border-radius: 50%;
-    background: var(--eagle);
-    color: var(--bg-deep);
-    box-shadow: 0 0 0 2px rgba(242,201,76,0.35);
-  }
-  .badge.ace {
-    clip-path: polygon(50% 6%, 94% 94%, 6% 94%);
-    background: var(--eagle);
-    color: var(--bg-deep);
-    width: 26px; height: 26px;
-  }
-  .badge.bogey {
+  .badge.stroke3 {
     border-radius: 7px;
-    background: var(--bogey);
-    color: var(--bg-deep);
+    background: var(--blue);
+    color: #fff;
   }
-  .badge.double {
+  .badge.stroke4 {
     border-radius: 7px;
     background: var(--double);
     color: var(--double-ink);
+  }
+  .badge.stroke5plus {
+    border-radius: 7px;
+    background: var(--double-dark);
+    color: #fff;
   }
   .badge.conflict {
     outline: 2px solid var(--accent);
@@ -372,15 +367,12 @@ function scoreBadge(strokes, par, status) {
   if (strokes === null || strokes === undefined) {
     return `<span class="badge pending">–</span>`;
   }
-  if (strokes === 1) {
-    return `<span class="badge ace${conflictClass}">${strokes}</span>`;
-  }
-  const diff = strokes - par;
-  let cls = 'par';
-  if (diff <= -2) cls = 'eagle';
-  else if (diff === -1) cls = 'birdie';
-  else if (diff === 1) cls = 'bogey';
-  else if (diff >= 2) cls = 'double';
+  let cls;
+  if (strokes === 1) cls = 'stroke1';
+  else if (strokes === 2) cls = 'stroke2';
+  else if (strokes === 3) cls = 'stroke3';
+  else if (strokes === 4) cls = 'stroke4';
+  else cls = 'stroke5plus';
   return `<span class="badge ${cls}${conflictClass}">${strokes}</span>`;
 }
 function groupParks(holes) {
@@ -460,11 +452,11 @@ function render(data) {
       </table>
     </div>
     <div class="legend">
-      <span><i style="background:var(--eagle)"></i> Ace / Eagle</span>
-      <span><i style="background:var(--birdie)"></i> Birdie</span>
-      <span><i style="background:var(--par-bg)"></i> Par</span>
-      <span><i style="background:var(--bogey)"></i> Bogey</span>
-      <span><i style="background:var(--double)"></i> Double bogey+</span>
+      <span><i style="background:var(--eagle); border-radius:50%;"></i> 1</span>
+      <span><i style="background:var(--birdie); border-radius:50%;"></i> 2</span>
+      <span><i style="background:var(--blue);"></i> 3</span>
+      <span><i style="background:var(--double);"></i> 4</span>
+      <span><i style="background:var(--double-dark);"></i> 5+</span>
     </div>
   `;
 }
