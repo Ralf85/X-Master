@@ -373,16 +373,19 @@ async function renderRounds(el) {
       </table>
       <h3 style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">🏞️ Lisa terve park korraga (nt "Harjumägi: rajad 1-14")</h3>
       <div class="row3">
-        <select id="rangePark">${state.parks.map((p) => `<option value="${p.id}">${p.name}</option>`).join('')}</select>
-        <input id="rangeStart" type="number" placeholder="Algus rada (nt 1)">
-        <input id="rangeEnd" type="number" placeholder="Lõpp rada (nt 14)">
+        <div><label>Park</label><select id="rangePark">${state.parks.map((p) => `<option value="${p.id}">${p.name}</option>`).join('')}</select></div>
+        <div><label>Algus rada</label><input id="rangeStart" type="number" placeholder="nt 1"></div>
+        <div><label>Lõpp rada</label><input id="rangeEnd" type="number" placeholder="nt 14"></div>
       </div>
       <div class="row2" style="margin-top:8px;">
-        <input id="rangePar" type="number" placeholder="Par (kõigile, saab hiljem muuta)" value="3">
-        <button class="btn secondary" id="generateRange">Genereeri read allpool ↓</button>
+        <div><label>Par (kõigile neile radadele, saab hiljem iga raja juures eraldi muuta)</label><input id="rangePar" type="number" placeholder="Par" value="3"></div>
+        <div><label>&nbsp;</label><button class="btn secondary full" id="generateRange">Genereeri read allpool ↓</button></div>
       </div>
 
       <h3 style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">➕ Lisa UUED rajad (see ei muuda ülal olevaid)</h3>
+      <div style="display:grid; grid-template-columns:70px 70px 1fr 40px; gap:8px; font-size:11px; color:var(--ink-faint); margin-bottom:2px;">
+        <span>Rada #</span><span>Par</span><span>Park</span><span></span>
+      </div>
       <div id="holeRows"></div>
       <button class="btn secondary small" id="addHoleRow">+ Rida</button>
       <button class="btn full" id="saveHoles">Lisa need uued rajad</button>
@@ -393,9 +396,9 @@ async function renderRounds(el) {
     <div class="card">
       <h3>Poolid</h3>
       <div class="row3">
-        <input id="bulkPoolCount" type="number" placeholder="Mitu poolid luua">
-        <input id="bulkPoolMax" type="number" placeholder="Max mängijaid/pool" value="4">
-        <input id="bulkStartHole" type="number" placeholder="Start hole (kõigil)" value="1">
+        <div><label>Mitu poolid luua</label><input id="bulkPoolCount" type="number" placeholder="nt 12"></div>
+        <div><label>Max mängijaid / pool</label><input id="bulkPoolMax" type="number" placeholder="Max mängijaid" value="4"></div>
+        <div><label>Start rada (kõigile korraga loodud poolidele)</label><input id="bulkStartHole" type="number" placeholder="Start rada" value="1"></div>
       </div>
       <button class="btn full" id="bulkCreatePools" style="margin-top:8px;">Loo poolid korraga</button>
       <div class="error-msg" id="bulkPoolStatus"></div>
