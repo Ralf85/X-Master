@@ -53,7 +53,7 @@ async function getRoundLeaderboard(req, res) {
 
     const { rows: players } = await pool.query(
         `SELECT DISTINCT p.id AS player_id, p.player_number, p.first_name, p.last_name,
-                p.profile_image_url, d.id AS division_id, d.name AS division_name
+                p.profile_image_url, d.id AS division_id, d.name AS division_name, d.sort_order AS division_sort_order
          FROM pool_players pp
          JOIN registrations r ON r.id = pp.registration_id
          JOIN players p ON p.id = r.player_id
@@ -98,6 +98,7 @@ async function getRoundLeaderboard(req, res) {
             profileImageUrl: player.profile_image_url,
             divisionId: player.division_id,
             divisionName: player.division_name,
+            divisionSortOrder: player.division_sort_order,
             thru: completed.length,
             totalStrokes,
             relativeToPar: completed.length > 0 ? totalStrokes - completedPar : null,
@@ -105,8 +106,11 @@ async function getRoundLeaderboard(req, res) {
         };
     });
 
-    // Sorteeri: kõigepealt need, kel on tulemusi, paremuse järjekorras; lõpetamata eraldi
+    // Sorteeri: kõigepealt divisjoni järgi (meeste paremik, siis naiste, jne),
+    // seejärel iga divisjoni SEES paremuse järjekorras; lõpetamata eraldi lõppu
     leaderboard.sort((a, b) => {
+        if (a.divisionSortOrder !== b.divisionSortOrder) return a.divisionSortOrder - b.divisionSortOrder;
+        if (a.divisionId !== b.divisionId) return a.divisionId - b.divisionId;
         if (a.thru === 0 && b.thru === 0) return 0;
         if (a.thru === 0) return 1;
         if (b.thru === 0) return -1;

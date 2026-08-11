@@ -390,6 +390,16 @@ function fmtRelative(n) {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
+function groupByDivision(leaderboard) {
+  const groups = [];
+  for (const p of leaderboard) {
+    const last = groups[groups.length - 1];
+    if (last && last.divisionName === p.divisionName) last.players.push(p);
+    else groups.push({ divisionName: p.divisionName, players: [p] });
+  }
+  return groups;
+}
+
 function render(data) {
   document.getElementById('eventTitle').textContent = data.round.event_name;
   document.getElementById('roundSubtitle').textContent =
@@ -413,44 +423,53 @@ function render(data) {
     holeRow += `<th class="hole-th"><div class="num">${h.hole_number}</div><div class="par">Par ${h.par}</div></th>`;
   }
 
-  let body = '';
-  data.leaderboard.forEach((p, i) => {
-    const color = avatarColor(p.firstName + p.lastName);
-    const avatarHtml = p.profileImageUrl
-      ? `<img src="${p.profileImageUrl}" class="avatar" style="object-fit:cover;" alt="">`
-      : `<div class="avatar" style="background:${color}; font-size:15px;">${funAvatarFor(p.playerId)}</div>`;
-    const relClass = p.relativeToPar < 0 ? 'under' : p.relativeToPar > 0 ? 'over' : '';
-    body += `<tr>
-      <td class="player-td">
-        <div class="player-row">
-          <div class="rank">${p.thru > 0 ? i + 1 : '–'}</div>
-          ${avatarHtml}
-          <div class="name-block">
-            <div class="firstname">${p.firstName}</div>
-            <div class="lastname-row">${p.lastName} <span class="division">· ${p.divisionName}</span></div>
+  const divisionGroups = groupByDivision(data.leaderboard);
+  let allTablesHtml = '';
+
+  divisionGroups.forEach((group) => {
+    let body = '';
+    group.players.forEach((p, i) => {
+      const color = avatarColor(p.firstName + p.lastName);
+      const avatarHtml = p.profileImageUrl
+        ? `<img src="${p.profileImageUrl}" class="avatar" style="object-fit:cover;" alt="">`
+        : `<div class="avatar" style="background:${color}; font-size:15px;">${funAvatarFor(p.playerId)}</div>`;
+      const relClass = p.relativeToPar < 0 ? 'under' : p.relativeToPar > 0 ? 'over' : '';
+      body += `<tr>
+        <td class="player-td">
+          <div class="player-row">
+            <div class="rank">${p.thru > 0 ? i + 1 : '–'}</div>
+            ${avatarHtml}
+            <div class="name-block">
+              <div class="firstname">${p.firstName}</div>
+              <div class="lastname-row">${p.lastName}</div>
+            </div>
+            <div class="totals">
+              <div class="rel-score ${relClass}">${fmtRelative(p.relativeToPar)}</div>
+              <div class="thru">THRU ${p.thru}</div>
+            </div>
           </div>
-          <div class="totals">
-            <div class="rel-score ${relClass}">${fmtRelative(p.relativeToPar)}</div>
-            <div class="thru">THRU ${p.thru}</div>
-          </div>
-        </div>
-      </td>`;
-    for (const h of p.holeScores) {
-      body += `<td class="score-td">${scoreBadge(h.strokes, h.par, h.status)}</td>`;
-    }
-    body += `</tr>`;
+        </td>`;
+      for (const h of p.holeScores) {
+        body += `<td class="score-td">${scoreBadge(h.strokes, h.par, h.status)}</td>`;
+      }
+      body += `</tr>`;
+    });
+
+    allTablesHtml += `
+      <h2 style="font-family:var(--font-display); font-size:15px; padding:0 20px; margin:22px 0 10px;">${group.divisionName}</h2>
+      <div class="board-wrapper">
+        <table class="board">
+          <thead>
+            <tr>${parkRow}</tr>
+            <tr>${holeRow}</tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
   });
 
   document.getElementById('content').innerHTML = `
-    <div class="board-wrapper">
-      <table class="board">
-        <thead>
-          <tr>${parkRow}</tr>
-          <tr>${holeRow}</tr>
-        </thead>
-        <tbody>${body}</tbody>
-      </table>
-    </div>
+    ${allTablesHtml}
     <div class="legend">
       <span><i style="background:var(--eagle); border-radius:50%;"></i> 1</span>
       <span><i style="background:var(--birdie); border-radius:50%;"></i> 2</span>

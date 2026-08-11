@@ -85,8 +85,9 @@ function renderShell(inner) {
 
 function render(search) {
   app.innerHTML = renderShell(`
-    <div class="card">
-      <input id="searchInput" placeholder="Otsi nime, Player ID või emaili järgi..." value="${search}">
+    <div class="card" style="display:flex; gap:10px; align-items:center;">
+      <input id="searchInput" placeholder="Otsi nime, Player ID või emaili järgi..." value="${search}" style="flex:1;">
+      <button class="btn secondary" id="exportEmailsBtn" style="white-space:nowrap;">⬇ Emailid (CSV)</button>
     </div>
 
     ${resetPinMessage ? `<div class="card" style="background:rgba(46,157,92,0.08); border-color:var(--birdie); display:flex; justify-content:space-between; align-items:center;">
@@ -104,13 +105,28 @@ function render(search) {
             <td>${p.first_name} ${p.last_name}${p.pdga_number ? '<br><span style="color:var(--ink-faint);font-size:11px;">PDGA ' + p.pdga_number + '</span>' : ''}</td>
             <td style="color:var(--ink-dim); font-size:12.5px;">${p.email || p.phone || '—'}</td>
             <td><span class="claimed-badge ${p.is_claimed ? 'yes' : 'no'}">${p.is_claimed ? 'Loodud' : 'Admin lisatud'}</span></td>
-            <td><button class="btn secondary" data-reset-pin="${p.id}" data-player-name="${p.first_name} ${p.last_name}">Lähtesta PIN</button></td>
+            <td style="white-space:nowrap;">
+              <button class="btn secondary" data-reset-pin="${p.id}" data-player-name="${p.first_name} ${p.last_name}">Lähtesta PIN</button>
+              <span data-delete-player="${p.id}" data-player-name="${p.first_name} ${p.last_name}" style="cursor:pointer; color:var(--double); font-size:12px; margin-left:8px;">Kustuta</span>
+            </td>
           </tr>`).join('')}
       </table>`}
     </div>
   `);
 
   document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('dg_admin_token'); location.href = '/admin'; };
+  document.getElementById('exportEmailsBtn').onclick = async () => {
+    const res = await fetch('/api/admin/players/export-emails', { headers: { Authorization: `Bearer ${token}` } });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mangijate-emailid.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
   document.getElementById('searchInput').oninput = (e) => {
     clearTimeout(window._searchDebounce);
     window._searchDebounce = setTimeout(() => load(e.target.value), 300);
@@ -123,6 +139,14 @@ function render(search) {
       const data = await res.json();
       resetPinMessage = `Uus PIN mängijale ${btn.dataset.playerName}: ${data.newPin} — ütle see talle kohe, teine kord seda enam ei näe.`;
       render(document.getElementById('searchInput').value);
+    };
+  });
+  document.querySelectorAll('[data-delete-player]').forEach((el) => {
+    el.onclick = async () => {
+      const ok = confirm(`Kustutada "${el.dataset.playerName}" jäädavalt?\n\nSee kustutab tema konto, kõik registreerumised ja tulemused. Seda ei saa tagasi võtta.`);
+      if (!ok) return;
+      await fetch(`/api/admin/players/${el.dataset.deletePlayer}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      load(document.getElementById('searchInput').value);
     };
   });
   const dismissBtn = document.getElementById('dismissPinMsg');

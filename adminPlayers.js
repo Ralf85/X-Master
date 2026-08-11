@@ -74,4 +74,62 @@ router.get('/export-emails', asyncHandler(async (req, res) => {
     res.send('\uFEFF' + header + csvRows); // BOM aitab Excelil õigesti ä/ö/ü kuvada
 }));
 
+// ---------------------------------------------------------------------------
+// DELETE /api/admin/players/:playerId
+// Kustutab mängija konto jäädavalt, koos kõigi registreerumiste, tulemuste
+// ja logikirjetega (nii tema enda kui ka nendega, kus ta oli märkija).
+// ---------------------------------------------------------------------------
+router.delete('/:playerId', asyncHandler(async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const { rows: playerRows } = await client.query('SELECT id, first_name, last_name FROM players WHERE id = $1', [req.params.playerId]);
+        if (!playerRows[0]) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Mängijat ei leitud.' });
+        }
+
+        // official_scores.last_entry_id ei ole CASCADE peal - tühjenda need
+        // enne, muidu blokeerib see score_entries kustutamist.
+        await client.query(
+            `UPDATE official_scores SET last_entry_id = NULL
+             WHERE last_entry_id IN (
+                 SELECT id FROM score_entries WHERE player_id = $1 OR entered_by_player_id = $1
+             )`,
+            [req.params.playerId]
+        );
+        await client.query(
+            'DELETE FROM score_entries WHERE player_id = $1 OR entered_by_player_id = $1',
+            [req.params.playerId]
+        );
+        await client.query(
+            'DELETE FROM score_audit_log WHERE player_id = $1 OR actor_player_id = $1',
+            [req.params.playerId]
+        );
+        await client.query(
+            'DELETE FROM score_conflicts WHERE player_id = $1 OR attempted_by_player_id = $1',
+            [req.params.playerId]
+        );
+        await client.query('DELETE FROM official_scores WHERE player_id = $1', [req.params.playerId]);
+        // pool_players.registration_id ei ole CASCADE peal - kustuta enne,
+        // muidu blokeerib see registrations'i kustutamist.
+        await client.query(
+            'DELETE FROM pool_players WHERE registration_id IN (SELECT id FROM registrations WHERE player_id = $1)',
+            [req.params.playerId]
+        );
+        await client.query('DELETE FROM registrations WHERE player_id = $1', [req.params.playerId]);
+
+        const { rows } = await client.query('DELETE FROM players WHERE id = $1 RETURNING id', [req.params.playerId]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'Mängija kustutatud.', player: playerRows[0] });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}));
+
 module.exports = router;
