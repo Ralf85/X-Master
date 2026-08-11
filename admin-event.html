@@ -134,7 +134,10 @@ function render() {
   app.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
       <a class="back-link" href="/admin">← Kõik võistlused</a>
-      <button class="btn secondary small" id="openLogBtn">📝 Logi</button>
+      <div style="display:flex; gap:8px;">
+        <a class="btn secondary small" href="/leaderboard?event=${state.event.slug}" target="_blank" style="text-decoration:none;">🏆 Tulemused</a>
+        <button class="btn secondary small" id="openLogBtn">📝 Logi</button>
+      </div>
     </div>
     <h1>${state.event.name}</h1>
     <div class="tabs">
