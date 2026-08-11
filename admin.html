@@ -227,22 +227,40 @@ function eventRow(e) {
 async function createEvent() {
   const name = document.getElementById('newName').value;
   const slug = document.getElementById('newSlug').value;
-  const location = document.getElementById('newLocation').value;
+  const eventLocation = document.getElementById('newLocation').value;
   const startDate = document.getElementById('newStart').value;
   const endDate = document.getElementById('newEnd').value;
   if (!name || !slug || !startDate || !endDate) {
     document.getElementById('createError').textContent = 'Nimi, slug, algus- ja lõppkuupäev on kohustuslikud.';
     return;
   }
+  const btn = document.getElementById('createBtn');
+  const errorEl = document.getElementById('createError');
+  btn.disabled = true;
+  btn.textContent = 'Loon...';
+  errorEl.style.color = 'var(--double)';
+  errorEl.textContent = '';
   try {
     const res = await fetch('/api/admin/events', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-      body: JSON.stringify({ name, slug, location, startDate, endDate }),
+      body: JSON.stringify({ name, slug, location: eventLocation, startDate, endDate }),
     });
     const data = await res.json();
-    if (!res.ok) { document.getElementById('createError').textContent = data.error; return; }
-    location.href = `/admin-event?event=${data.event.id}`;
-  } catch (e) { document.getElementById('createError').textContent = 'Ühendus ebaõnnestus.'; }
+    if (!res.ok) {
+      btn.disabled = false;
+      btn.textContent = 'Loo võistlus';
+      errorEl.textContent = data.error;
+      return;
+    }
+    btn.textContent = '✓ Loodud!';
+    errorEl.style.color = 'var(--birdie)';
+    errorEl.textContent = `"${data.event.name}" on loodud. Suunan sind sinna...`;
+    setTimeout(() => { window.location.href = `/admin-event?event=${data.event.id}`; }, 700);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Loo võistlus';
+    errorEl.textContent = 'Ühendus ebaõnnestus.';
+  }
 }
 
 if (state.token) loadEvents(); else renderLogin();
