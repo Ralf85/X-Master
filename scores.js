@@ -148,29 +148,57 @@ router.post('/:poolId/holes/:holeId/players/:playerId', asyncHandler(async (req,
                 [poolInfo.round_id, holeId, targetPlayerId, req.player.id, strokes]
             );
         } else {
-            // Erineb olemasolevast - punktid 25-27, EI kirjutata üle
-            await client.query(
-                `UPDATE score_entries SET caused_conflict = TRUE WHERE id = $1`, [entry.id]
-            );
-            await client.query(
-                `INSERT INTO score_conflicts (round_id, hole_id, player_id, existing_value, attempted_value, attempted_by_player_id)
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [poolInfo.round_id, holeId, targetPlayerId, existing.strokes, strokes, req.player.id]
-            );
-            const { rows: updated } = await client.query(
-                `UPDATE official_scores SET status = 'conflict' WHERE id = $1 RETURNING *`,
-                [existing.id]
-            );
-            result = updated[0];
-            await client.query(
-                `INSERT INTO score_audit_log (round_id, hole_id, player_id, actor_type, actor_player_id, action, old_value, new_value)
-                 VALUES ($1, $2, $3, 'player', $4, 'conflict', $5, $6)`,
-                [poolInfo.round_id, holeId, targetPlayerId, req.player.id, existing.strokes, strokes]
-            );
+            // Erineb olemasolevast - kontrolli, kas seesama inimene, kes selle
+            // algselt sisestas, parandab nüüd ennast (lubatud otse), või on
+            // tegu TEISE märkijaga (jääb konfliktiks, vajab admini)
+            let originalEnteredBy = null;
+            if (existing.last_entry_id) {
+                const { rows: origRows } = await client.query(
+                    'SELECT entered_by_player_id FROM score_entries WHERE id = $1',
+                    [existing.last_entry_id]
+                );
+                originalEnteredBy = origRows[0]?.entered_by_player_id;
+            }
+
+            if (originalEnteredBy === req.player.id) {
+                // Sama märkija parandab iseenda varasemat sisestust - punkt uus:
+                // lubatud otse, EI teki konflikti, aga logitakse eraldi "self_correction"'ina
+                const { rows: updated } = await client.query(
+                    `UPDATE official_scores SET strokes = $1, status = 'normal', last_entry_id = $2, updated_at = now()
+                     WHERE id = $3 RETURNING *`,
+                    [strokes, entry.id, existing.id]
+                );
+                result = updated[0];
+                await client.query(
+                    `INSERT INTO score_audit_log (round_id, hole_id, player_id, actor_type, actor_player_id, action, old_value, new_value)
+                     VALUES ($1, $2, $3, 'player', $4, 'self_correction', $5, $6)`,
+                    [poolInfo.round_id, holeId, targetPlayerId, req.player.id, existing.strokes, strokes]
+                );
+            } else {
+                // Teine märkija üritab muuta - EI kirjutata üle, tekib konflikt (nagu enne)
+                await client.query(
+                    `UPDATE score_entries SET caused_conflict = TRUE WHERE id = $1`, [entry.id]
+                );
+                await client.query(
+                    `INSERT INTO score_conflicts (round_id, hole_id, player_id, existing_value, attempted_value, attempted_by_player_id)
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [poolInfo.round_id, holeId, targetPlayerId, existing.strokes, strokes, req.player.id]
+                );
+                const { rows: updated } = await client.query(
+                    `UPDATE official_scores SET status = 'conflict' WHERE id = $1 RETURNING *`,
+                    [existing.id]
+                );
+                result = updated[0];
+                await client.query(
+                    `INSERT INTO score_audit_log (round_id, hole_id, player_id, actor_type, actor_player_id, action, old_value, new_value)
+                     VALUES ($1, $2, $3, 'player', $4, 'conflict', $5, $6)`,
+                    [poolInfo.round_id, holeId, targetPlayerId, req.player.id, existing.strokes, strokes]
+                );
+            }
         }
 
         await client.query('COMMIT');
-        res.status(existing && existing.strokes !== strokes ? 409 : 200).json({ officialScore: result });
+        res.status(result.status === 'conflict' ? 409 : 200).json({ officialScore: result });
     } catch (err) {
         await client.query('ROLLBACK');
         throw err;

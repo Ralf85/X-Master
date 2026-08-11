@@ -74,6 +74,20 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="logModal">
+  <div class="modal-sheet">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="font-family:var(--font-display); margin:0;">📝 Enda tulemuse parandused</h3>
+      <span id="logModalClose" style="cursor:pointer; color:var(--ink-faint); font-size:20px;">✕</span>
+    </div>
+    <p style="color:var(--ink-faint); font-size:12px; margin-top:-6px;">
+      Siin näed, millal märkija on tagantjärele muutnud enda varem sisestatud tulemust.
+      Kui kaks eri inimest sisestavad erineva tulemuse, tekib selle asemel konflikt (vt "Konfliktid" vahekaart).
+    </p>
+    <div id="logModalBody">Laen...</div>
+  </div>
+</div>
+
 <script>
 const params = new URLSearchParams(location.search);
 const eventId = params.get('event');
@@ -90,6 +104,8 @@ let resetPinMessage = null;
 
 document.getElementById('movePlayerClose').onclick = () => document.getElementById('movePlayerModal').classList.remove('show');
 document.getElementById('movePlayerModal').onclick = (e) => { if (e.target.id === 'movePlayerModal') e.currentTarget.classList.remove('show'); };
+document.getElementById('logModalClose').onclick = () => document.getElementById('logModal').classList.remove('show');
+document.getElementById('logModal').onclick = (e) => { if (e.target.id === 'logModal') e.currentTarget.classList.remove('show'); };
 
 async function api(path, opts) {
   const res = await fetch(path, {
@@ -116,7 +132,10 @@ async function loadEvent() {
 
 function render() {
   app.innerHTML = `
-    <a class="back-link" href="/admin">← Kõik võistlused</a>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <a class="back-link" href="/admin">← Kõik võistlused</a>
+      <button class="btn secondary small" id="openLogBtn">📝 Logi</button>
+    </div>
     <h1>${state.event.name}</h1>
     <div class="tabs">
       ${tabBtn('overview', 'Ülevaade')}
@@ -129,6 +148,7 @@ function render() {
   document.querySelectorAll('[data-tab]').forEach((el) => {
     el.onclick = () => { state.activeTab = el.dataset.tab; render(); };
   });
+  document.getElementById('openLogBtn').onclick = openSelfCorrectionLog;
   renderTab();
 }
 function tabBtn(id, label) {
@@ -534,6 +554,34 @@ async function movePlayerToZone(payload, targetZone) {
   const poolsData = await api(`/api/admin/pools/rounds/${state.selectedRoundId}`);
   state.pools = poolsData.pools;
   renderPoolBuilder();
+}
+
+async function openSelfCorrectionLog() {
+  const modal = document.getElementById('logModal');
+  const body = document.getElementById('logModalBody');
+  body.innerHTML = 'Laen...';
+  modal.classList.add('show');
+  try {
+    const data = await api(`/api/admin/scores/self-corrections/${eventId}`);
+    if (data.log.length === 0) {
+      body.innerHTML = '<div class="empty-note">Ühtegi tagantjärgi parandust pole veel tehtud.</div>';
+      return;
+    }
+    body.innerHTML = `
+      <table>
+        <tr><th>Mängija</th><th>Rada</th><th>Muudatus</th><th>Kes parandas</th><th>Millal</th></tr>
+        ${data.log.map((l) => `
+          <tr>
+            <td>${l.first_name} ${l.last_name}</td>
+            <td>${l.hole_number}</td>
+            <td>${l.old_value} → <strong>${l.new_value}</strong></td>
+            <td>${l.actor_first_name || '—'} ${l.actor_last_name || ''}</td>
+            <td style="color:var(--ink-faint); font-size:11.5px;">${new Date(l.created_at).toLocaleString('et-EE')}</td>
+          </tr>`).join('')}
+      </table>`;
+  } catch (e) {
+    body.innerHTML = `<div class="error-msg">Viga: ${e.message}</div>`;
+  }
 }
 
 function openMovePlayerModal(payload) {

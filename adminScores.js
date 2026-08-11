@@ -129,4 +129,27 @@ router.patch('/round/:roundId/holes/:holeId/players/:playerId', asyncHandler(asy
     }
 }));
 
+// ---------------------------------------------------------------------------
+// GET /api/admin/scores/self-corrections/:eventId
+// Logi: kus märkija on TAGANTJÄRELE muutnud iseenda varasemat sisestust
+// (mitte konflikt teise inimesega - vt score_conflicts selle jaoks).
+// ---------------------------------------------------------------------------
+router.get('/self-corrections/:eventId', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+        `SELECT sal.id, sal.old_value, sal.new_value, sal.created_at,
+                h.hole_number, p.first_name, p.last_name, p.player_number,
+                ap.first_name AS actor_first_name, ap.last_name AS actor_last_name
+         FROM score_audit_log sal
+         JOIN rounds r ON r.id = sal.round_id
+         JOIN holes h ON h.id = sal.hole_id
+         JOIN players p ON p.id = sal.player_id
+         LEFT JOIN players ap ON ap.id = sal.actor_player_id
+         WHERE r.event_id = $1 AND sal.action = 'self_correction'
+         ORDER BY sal.created_at DESC
+         LIMIT 300`,
+        [req.params.eventId]
+    );
+    res.json({ log: rows });
+}));
+
 module.exports = router;
