@@ -62,25 +62,48 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/admin/registrations/add-player
-// Punkt 66E: admin lisab mängija, kellel pole veel kontot
+// Punkt 66E: admin lisab mängija, kellel pole veel kontot.
+// Kui existingPlayerId on antud, seotakse OLEMASOLEVA mängijaga (ei looda duplikaati).
 // ---------------------------------------------------------------------------
 router.post('/add-player', asyncHandler(async (req, res) => {
-    const { eventId, divisionId, firstName, lastName, pdgaNumber, country } = req.body;
-    if (!eventId || !divisionId || !firstName || !lastName) {
-        return res.status(400).json({ error: 'eventId, divisionId, firstName ja lastName on kohustuslikud.' });
+    const { eventId, divisionId, firstName, lastName, pdgaNumber, country, existingPlayerId } = req.body;
+    if (!eventId || !divisionId) {
+        return res.status(400).json({ error: 'eventId ja divisionId on kohustuslikud.' });
+    }
+    if (!existingPlayerId && (!firstName || !lastName)) {
+        return res.status(400).json({ error: 'firstName ja lastName on kohustuslikud, kui olemasolevat mängijat ei vali.' });
     }
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        const { rows: playerRows } = await client.query(
-            `INSERT INTO players (player_number, first_name, last_name, pdga_number, country, is_claimed)
-             VALUES (nextval('player_number_seq'), $1, $2, $3, $4, FALSE)
-             RETURNING *`,
-            [firstName, lastName, pdgaNumber || null, country || null]
+        let player;
+        if (existingPlayerId) {
+            const { rows } = await client.query('SELECT * FROM players WHERE id = $1', [existingPlayerId]);
+            if (!rows[0]) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: 'Mängijat ei leitud.' });
+            }
+            player = rows[0];
+        } else {
+            const { rows } = await client.query(
+                `INSERT INTO players (player_number, first_name, last_name, pdga_number, country, is_claimed)
+                 VALUES (nextval('player_number_seq'), $1, $2, $3, $4, FALSE)
+                 RETURNING *`,
+                [firstName, lastName, pdgaNumber || null, country || null]
+            );
+            player = rows[0];
+        }
+
+        const { rows: existingReg } = await client.query(
+            'SELECT id FROM registrations WHERE event_id = $1 AND player_id = $2',
+            [eventId, player.id]
         );
-        const player = playerRows[0];
+        if (existingReg[0]) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'See mängija on juba sellele võistlusele registreeritud.' });
+        }
 
         const { rows: regRows } = await client.query(
             `INSERT INTO registrations (event_id, player_id, division_id, status, pin_confirmed)

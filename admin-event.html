@@ -126,9 +126,28 @@ function renderTab() {
 // ---------------------------------------------------------------------------
 // OVERVIEW: status, divisions, parks
 // ---------------------------------------------------------------------------
-function renderOverview(el) {
+async function renderOverview(el) {
   const statuses = ['draft','registration_open','registration_closed','live','finished','archived'];
+  let announcements = [];
+  try {
+    const annData = await api(`/api/admin/announcements/${eventId}`);
+    announcements = annData.announcements;
+  } catch (e) { /* pole hullu, näita lihtsalt tühja ajalugu */ }
+
   el.innerHTML = `
+    <div class="card">
+      <h3>📢 Kiirteade mängijatele</h3>
+      <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-6px;">Ilmub hüpikteatena kõigile, kes hetkel selle event'i scorecard'il on (nt "Ring peatatud äikese tõttu").</p>
+      <textarea id="announceText" placeholder="nt Autasustamine algab 18:00 stardialal." style="width:100%; min-height:70px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:10px 12px; font-family:var(--font-body); font-size:14px; resize:vertical;"></textarea>
+      <button class="btn full" id="sendAnnounceBtn" style="margin-top:10px;">Saada kõigile</button>
+      <div class="ok-msg" id="announceStatus"></div>
+      ${announcements.length > 0 ? `
+        <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line);">
+          <div style="font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px;">Varasemad teated</div>
+          ${announcements.map((a) => `<div style="font-size:12.5px; color:var(--ink-dim); padding:5px 0;">${new Date(a.created_at).toLocaleTimeString('et-EE')} — ${a.message}</div>`).join('')}
+        </div>` : ''}
+    </div>
+
     <div class="card">
       <h3>Staatus</h3>
       <select id="statusSelect">${statuses.map((s) => `<option value="${s}" ${s===state.event.status?'selected':''}>${s}</option>`).join('')}</select>
@@ -154,6 +173,14 @@ function renderOverview(el) {
       </div>
     </div>
   `;
+  document.getElementById('sendAnnounceBtn').onclick = async () => {
+    const text = document.getElementById('announceText').value.trim();
+    if (!text) return;
+    await api(`/api/admin/announcements/${eventId}`, { method: 'POST', body: JSON.stringify({ message: text }) });
+    document.getElementById('announceStatus').textContent = '✓ Saadetud';
+    document.getElementById('announceText').value = '';
+    renderTab();
+  };
   document.getElementById('saveStatus').onclick = async () => {
     await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ status: document.getElementById('statusSelect').value }) });
     document.getElementById('statusMsg').textContent = '✓ Salvestatud';
@@ -209,11 +236,15 @@ async function renderRegistrations(el) {
     <div class="card">
       <h3>Lisa mängija ilma kontota</h3>
       <div class="row3">
-        <input id="apFirst" placeholder="Eesnimi">
+        <div style="position:relative;">
+          <input id="apFirst" placeholder="Eesnimi" autocomplete="off">
+          <div id="apSuggestions" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-panel); border:1px solid var(--line); border-radius:8px; margin-top:4px; z-index:10; max-height:220px; overflow-y:auto; box-shadow:0 4px 14px rgba(0,0,0,0.25);"></div>
+        </div>
         <input id="apLast" placeholder="Perekonnanimi">
         <select id="apDiv">${state.divisions.map((d) => `<option value="${d.id}">${d.name}</option>`).join('')}</select>
       </div>
-      <button class="btn full" id="addPlayerBtn">Lisa mängija</button>
+      <div id="apSelectedBadge" style="display:none; margin-top:8px;"></div>
+      <button class="btn full" id="addPlayerBtn" style="margin-top:8px;">Lisa mängija</button>
       <div class="error-msg" id="apError"></div>
     </div>
   `;
@@ -229,13 +260,59 @@ async function renderRegistrations(el) {
   });
   const dismissBtn = document.getElementById('dismissPinMsg');
   if (dismissBtn) dismissBtn.onclick = () => { resetPinMessage = null; renderTab(); };
+
+  let selectedExistingPlayerId = null;
+  const apFirstInput = document.getElementById('apFirst');
+  const apLastInput = document.getElementById('apLast');
+  const suggestionsEl = document.getElementById('apSuggestions');
+  const badgeEl = document.getElementById('apSelectedBadge');
+
+  function clearApSelection() {
+    selectedExistingPlayerId = null;
+    badgeEl.style.display = 'none';
+    badgeEl.innerHTML = '';
+  }
+
+  apFirstInput.addEventListener('input', () => {
+    clearApSelection();
+    clearTimeout(window._apSearchDebounce);
+    const q = apFirstInput.value.trim();
+    if (q.length < 2) { suggestionsEl.style.display = 'none'; return; }
+    window._apSearchDebounce = setTimeout(async () => {
+      const data = await api(`/api/admin/players?search=${encodeURIComponent(q)}`);
+      if (data.players.length === 0) { suggestionsEl.style.display = 'none'; return; }
+      suggestionsEl.innerHTML = data.players.slice(0, 6).map((p) => `
+        <div data-pick-player="${p.id}" data-pick-first="${p.first_name}" data-pick-last="${p.last_name}"
+             style="padding:9px 12px; cursor:pointer; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; font-size:13px;">
+          <span>${p.first_name} ${p.last_name} <span style="color:var(--ink-faint); font-size:11px;">#${p.player_number}</span></span>
+          <span style="color:var(--accent);" title="Olemasolev kasutaja">★</span>
+        </div>`).join('');
+      suggestionsEl.style.display = 'block';
+      suggestionsEl.querySelectorAll('[data-pick-player]').forEach((row) => {
+        row.onclick = () => {
+          apFirstInput.value = row.dataset.pickFirst;
+          apLastInput.value = row.dataset.pickLast;
+          selectedExistingPlayerId = Number(row.dataset.pickPlayer);
+          suggestionsEl.style.display = 'none';
+          badgeEl.style.display = 'block';
+          badgeEl.innerHTML = `<span style="color:var(--accent); font-size:12px;">★ Olemasolev kasutaja (#${row.dataset.pickPlayer}) valitud - luuakse registreerimine ilma uut kontot loomata.</span>`;
+        };
+      });
+    }, 300);
+  });
+  apLastInput.addEventListener('input', clearApSelection);
+  document.addEventListener('click', (ev) => {
+    if (!suggestionsEl.contains(ev.target) && ev.target !== apFirstInput) suggestionsEl.style.display = 'none';
+  });
+
   document.getElementById('addPlayerBtn').onclick = async () => {
     try {
       await api('/api/admin/registrations/add-player', {
         method: 'POST',
         body: JSON.stringify({
           eventId: Number(eventId), divisionId: Number(document.getElementById('apDiv').value),
-          firstName: document.getElementById('apFirst').value, lastName: document.getElementById('apLast').value,
+          firstName: apFirstInput.value, lastName: apLastInput.value,
+          existingPlayerId: selectedExistingPlayerId,
         }),
       });
       renderTab();
