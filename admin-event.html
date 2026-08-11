@@ -32,6 +32,12 @@
   .btn.small { padding: 6px 11px; font-size: 11.5px; }
   .btn.full { width: 100%; margin-top: 14px; }
   .error-msg { color: var(--double); font-size: 12.5px; margin-top: 8px; min-height: 14px; }
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 30; padding: 16px;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal-sheet { width: 100%; max-width: 480px; max-height: 80vh; overflow-y: auto; background: var(--bg-panel-2); border-radius: 16px; padding: 20px; }
   .ok-msg { color: var(--birdie); font-size: 12.5px; margin-top: 8px; min-height: 14px; }
   .tabs { display: flex; gap: 6px; margin: 16px 0; overflow-x: auto; }
   .tab { padding: 8px 14px; border-radius: 8px; cursor: pointer; color: var(--ink-dim); font-family: var(--font-display); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
@@ -57,6 +63,17 @@
 </head>
 <body>
 <div class="wrap" id="app"></div>
+
+<div class="modal-backdrop" id="movePlayerModal">
+  <div class="modal-sheet">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="font-family:var(--font-display); margin:0;">Liiguta mängija...</h3>
+      <span id="movePlayerClose" style="cursor:pointer; color:var(--ink-faint); font-size:20px;">✕</span>
+    </div>
+    <div id="movePlayerGrid"></div>
+  </div>
+</div>
+
 <script>
 const params = new URLSearchParams(location.search);
 const eventId = params.get('event');
@@ -70,6 +87,9 @@ let state = {
   registrations: [], holes: [], pools: [], conflicts: [],
 };
 let resetPinMessage = null;
+
+document.getElementById('movePlayerClose').onclick = () => document.getElementById('movePlayerModal').classList.remove('show');
+document.getElementById('movePlayerModal').onclick = (e) => { if (e.target.id === 'movePlayerModal') e.currentTarget.classList.remove('show'); };
 
 async function api(path, opts) {
   const res = await fetch(path, {
@@ -496,10 +516,70 @@ function renderPoolBuilder() {
 
 function playerChip(first, last, registrationId, poolPlayerId) {
   const payload = JSON.stringify({ registrationId, poolPlayerId }).replace(/"/g, '&quot;');
-  return `<div class="chip" draggable="true" data-drag-payload="${payload}" style="cursor:grab;">${first} ${last}</div>`;
+  return `<div class="chip" draggable="true" data-drag-payload="${payload}" data-chip-click="1" style="cursor:pointer;">${first} ${last}</div>`;
+}
+
+async function movePlayerToZone(payload, targetZone) {
+  // Kui mängija oli juba mõnes poolis, eemalda ta sealt esmalt
+  if (payload.poolPlayerId) {
+    await api(`/api/admin/pools/players/${payload.poolPlayerId}`, { method: 'DELETE' });
+  }
+  // Kui sihtmärk on pärismaine pool (mitte "unassigned"), lisa ta sinna
+  if (targetZone !== 'unassigned') {
+    await api(`/api/admin/pools/${targetZone}/players`, {
+      method: 'POST',
+      body: JSON.stringify({ registrationId: payload.registrationId }),
+    });
+  }
+  const poolsData = await api(`/api/admin/pools/rounds/${state.selectedRoundId}`);
+  state.pools = poolsData.pools;
+  renderPoolBuilder();
+}
+
+function openMovePlayerModal(payload) {
+  const modal = document.getElementById('movePlayerModal');
+  const grid = document.getElementById('movePlayerGrid');
+  const unassignBtn = payload.poolPlayerId
+    ? `<button class="btn secondary full" id="moveToUnassigned" style="margin-bottom:12px;">Sidumata mängijad</button>`
+    : '';
+  const filterInput = state.pools.length > 12 ? `<input id="movePlayerFilter" placeholder="Otsi pooli numbrit..." style="margin-bottom:10px;">` : '';
+  grid.innerHTML = unassignBtn + filterInput + `
+    <div id="movePlayerButtons" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:8px;">
+      ${state.pools.map((p) => `
+        <button class="btn ${p.max_players && (p.players||[]).length >= p.max_players ? 'secondary' : ''}" data-move-to-pool="${p.id}" data-pool-number="${p.pool_number}" style="font-size:12px; padding:9px 6px;">
+          Pool ${p.pool_number} (${(p.players||[]).length}${p.max_players ? '/'+p.max_players : ''})
+        </button>`).join('')}
+    </div>`;
+
+  const closeAndMove = async (targetZone) => {
+    modal.classList.remove('show');
+    await movePlayerToZone(payload, targetZone);
+  };
+  const unassignEl = document.getElementById('moveToUnassigned');
+  if (unassignEl) unassignEl.onclick = () => closeAndMove('unassigned');
+  grid.querySelectorAll('[data-move-to-pool]').forEach((btn) => {
+    btn.onclick = () => closeAndMove(btn.dataset.moveToPool);
+  });
+  const filterEl = document.getElementById('movePlayerFilter');
+  if (filterEl) {
+    filterEl.oninput = () => {
+      const q = filterEl.value.trim();
+      document.querySelectorAll('#movePlayerButtons [data-pool-number]').forEach((btn) => {
+        btn.style.display = !q || btn.dataset.poolNumber.includes(q) ? '' : 'none';
+      });
+    };
+    setTimeout(() => filterEl.focus(), 50);
+  }
+  modal.classList.add('show');
 }
 
 function wireDragAndDrop() {
+  document.querySelectorAll('[data-chip-click]').forEach((chip) => {
+    chip.onclick = () => {
+      const payload = JSON.parse(chip.dataset.dragPayload.replace(/&quot;/g, '"'));
+      openMovePlayerModal(payload);
+    };
+  });
   document.querySelectorAll('[data-drag-payload]').forEach((chip) => {
     chip.ondragstart = (e) => {
       e.dataTransfer.setData('text/plain', chip.dataset.dragPayload);
@@ -516,22 +596,7 @@ function wireDragAndDrop() {
       const raw = e.dataTransfer.getData('text/plain');
       if (!raw) return;
       const payload = JSON.parse(raw.replace(/&quot;/g, '"'));
-      const targetZone = zone.dataset.dropZone;
-
-      // Kui mängija oli juba mõnes poolis, eemalda ta sealt esmalt
-      if (payload.poolPlayerId) {
-        await api(`/api/admin/pools/players/${payload.poolPlayerId}`, { method: 'DELETE' });
-      }
-      // Kui sihtmärk on pärismaine pool (mitte "unassigned"), lisa ta sinna
-      if (targetZone !== 'unassigned') {
-        await api(`/api/admin/pools/${targetZone}/players`, {
-          method: 'POST',
-          body: JSON.stringify({ registrationId: payload.registrationId }),
-        });
-      }
-      const poolsData = await api(`/api/admin/pools/rounds/${state.selectedRoundId}`);
-      state.pools = poolsData.pools;
-      renderPoolBuilder();
+      await movePlayerToZone(payload, zone.dataset.dropZone);
     };
   });
 }
