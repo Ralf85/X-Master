@@ -541,11 +541,19 @@ async function submitScore(playerId, holeId, strokes) {
   }
 }
 
+function isRoundFullyComplete() {
+  for (const h of state.playOrder) {
+    for (const p of state.players) {
+      if (!state.scores[scoreKey(p.player_id, h.id)]) return false;
+    }
+  }
+  return true;
+}
+
 function renderHole() {
   const hole = state.playOrder[state.holeIdx];
   const complete = state.playerIdx >= state.players.length;
-  const isLastHole = state.holeIdx === state.playOrder.length - 1;
-  const roundFinished = complete && isLastHole;
+  const roundFinished = complete && isRoundFullyComplete();
 
   let dots = state.players.map((p, i) => {
     const has = state.scores[scoreKey(p.player_id, hole.id)];
@@ -618,7 +626,7 @@ function renderHole() {
       <button class="nav-btn" id="backBtn">← Tagasi</button>
       ${roundFinished
         ? `<a class="nav-btn primary" style="display:flex;align-items:center;justify-content:center;text-decoration:none;" href="/leaderboard?round=${state.pool.round_id}">Vaata leaderboard'i</a>`
-        : `<button class="nav-btn primary" id="nextHoleBtn" ${complete ? '' : 'disabled'}>Järgmine rada →</button>`}
+        : `<button class="nav-btn primary" id="nextHoleBtn">Järgmine rada →</button>`}
     </div>
     <div class="sync-note" id="syncNote">✓ Kõik salvestatud serverisse</div>
   `;
