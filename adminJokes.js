@@ -40,4 +40,17 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     res.json({ message: 'Kustutatud.' });
 }));
 
+// ---------------------------------------------------------------------------
+// POST /api/admin/jokes/:id/reset
+// Lubab juba näidatud üldist anekdooti uuesti juhuslikku valikusse tagasi tuua.
+// ---------------------------------------------------------------------------
+router.post('/:id/reset', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+        'UPDATE joke_templates SET used_at = NULL WHERE id = $1 RETURNING *',
+        [req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Anekdooti ei leitud.' });
+    res.json({ joke: rows[0] });
+}));
+
 module.exports = router;
