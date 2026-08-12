@@ -85,7 +85,16 @@ app.get('/control-center', (req, res) => {
     res.sendFile(path.join(__dirname, 'control-center.html'));
 });
 
-app.use('/sounds', express.static(path.join(__dirname, 'sounds')));
+// Helifailid asuvad repo juurkaustas (mitte eraldi sounds/ alamkaustas) -
+// serveeri need otse sealt, aga ainult need kuus konkreetset teadaolevat
+// faili (mitte kogu juurkaust, see paljastaks ka .js lähtekoodi jms).
+const SCORE_SOUND_FILES = ['1-holar.mp3', '2-birdie.mp3', '3-par.mp3', '4-bougy.mp3', '5-tupla.mp3', '6-oeh.mp3'];
+app.get('/sounds/:filename', (req, res) => {
+    if (!SCORE_SOUND_FILES.includes(req.params.filename)) {
+        return res.status(404).json({ error: 'Helifaili ei leitud.' });
+    }
+    res.sendFile(path.join(__dirname, req.params.filename));
+});
 
 app.use('/api/health', healthRoutes);
 app.use('/api/players', playerRoutes);
