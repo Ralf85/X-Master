@@ -84,11 +84,13 @@ async function getRoundLeaderboard(req, res) {
                 par: h.par,
                 strokes: s ? s.strokes : null,
                 status: s ? s.status : null,
+                addressed: !!s, // punktid on olemas (nii normal, dnp kui conflict) - loeb "thru" jaoks
             };
         });
-        const completed = holeScores.filter((h) => h.strokes !== null);
-        const totalStrokes = completed.reduce((sum, h) => sum + h.strokes, 0);
-        const completedPar = completed.reduce((sum, h) => sum + h.par, 0);
+        const addressed = holeScores.filter((h) => h.addressed);
+        const scored = holeScores.filter((h) => h.strokes !== null); // ainult päris tulemused lähevad summasse
+        const totalStrokes = scored.reduce((sum, h) => sum + h.strokes, 0);
+        const completedPar = scored.reduce((sum, h) => sum + h.par, 0);
 
         return {
             playerId: player.player_id,
@@ -99,9 +101,9 @@ async function getRoundLeaderboard(req, res) {
             divisionId: player.division_id,
             divisionName: player.division_name,
             divisionSortOrder: player.division_sort_order,
-            thru: completed.length,
+            thru: addressed.length,
             totalStrokes,
-            relativeToPar: completed.length > 0 ? totalStrokes - completedPar : null,
+            relativeToPar: scored.length > 0 ? totalStrokes - completedPar : null,
             holeScores,
         };
     });
@@ -150,6 +152,7 @@ router.get('/round/:roundId/park/:parkId', asyncHandler(async (req, res) => {
 
     const byPlayer = {};
     for (const s of scores) {
+        if (s.strokes === null) continue; // rada jäi vahele - ei lähe pargi-arvestusse
         if (!byPlayer[s.player_id]) {
             byPlayer[s.player_id] = {
                 playerId: s.player_id,

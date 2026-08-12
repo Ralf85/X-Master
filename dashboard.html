@@ -131,7 +131,8 @@ function renderAuth(mode, errorMsg) {
       <label>Perekonnanimi</label><input id="lastName">
       <label>PIN (4-6 numbrit)</label><input id="newPin" type="password" inputmode="numeric">
       <label>Korda PIN-i</label><input id="newPinConfirm" type="password" inputmode="numeric">
-      <label>Email (valikuline)</label><input id="regEmail" type="email">
+      <label>Email</label><input id="regEmail" type="email" required>
+      <label>Telefon (valikuline)</label><input id="regPhone" type="tel" inputmode="tel">
       <button class="btn full" id="doRegister">Loo konto</button>
       <div class="error-msg">${errorMsg || ''}</div>`;
     document.getElementById('doRegister').onclick = doRegister;
@@ -155,12 +156,15 @@ async function doLogin() {
 }
 
 async function doRegister() {
+  const email = document.getElementById('regEmail').value.trim();
+  if (!email) return renderAuth('register', 'Email on kohustuslik.');
   const body = {
     firstName: document.getElementById('firstName').value,
     lastName: document.getElementById('lastName').value,
     pin: document.getElementById('newPin').value,
     pinConfirm: document.getElementById('newPinConfirm').value,
-    email: document.getElementById('regEmail').value || undefined,
+    email,
+    phone: document.getElementById('regPhone').value || undefined,
   };
   try {
     const res = await fetch('/api/players/register', {

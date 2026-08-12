@@ -60,12 +60,13 @@ router.get('/:poolId', asyncHandler(async (req, res) => {
 // Punktid 20-29: score-sisestus, matching ja konfliktituvastus
 // ---------------------------------------------------------------------------
 router.post('/:poolId/holes/:holeId/players/:playerId', asyncHandler(async (req, res) => {
-    const { strokes } = req.body;
+    const isDnp = req.body.dnp === true;
+    const strokes = isDnp ? null : req.body.strokes;
     const holeId = parseInt(req.params.holeId, 10);
     const targetPlayerId = parseInt(req.params.playerId, 10);
 
-    if (!Number.isInteger(strokes) || strokes < 1) {
-        return res.status(400).json({ error: 'strokes peab olema positiivne täisarv.' });
+    if (!isDnp && (!Number.isInteger(strokes) || strokes < 1)) {
+        return res.status(400).json({ error: 'strokes peab olema positiivne täisarv (või dnp: true, kui rada jäi vahele).' });
     }
 
     const { rows: poolRows } = await dbPool.query('SELECT * FROM pools WHERE id = $1', [req.params.poolId]);
@@ -107,6 +108,11 @@ router.post('/:poolId/holes/:holeId/players/:playerId', asyncHandler(async (req,
             [poolInfo.round_id, holeId, targetPlayerId]
         );
         const existing = existingRows[0];
+        const existingIsDnp = existing && existing.status === 'dnp';
+        const valuesMatch = existing && (
+            (isDnp && existingIsDnp) || (!isDnp && !existingIsDnp && existing.strokes === strokes)
+        );
+        const newStatus = isDnp ? 'dnp' : 'normal';
 
         const { rows: entryRows } = await client.query(
             `INSERT INTO score_entries (round_id, hole_id, player_id, entered_by_player_id, strokes)
@@ -122,8 +128,8 @@ router.post('/:poolId/holes/:holeId/players/:playerId', asyncHandler(async (req,
             const autoVerified = !poolInfo.require_double_verification;
             const { rows: created } = await client.query(
                 `INSERT INTO official_scores (round_id, hole_id, player_id, strokes, status, last_entry_id, verified)
-                 VALUES ($1, $2, $3, $4, 'normal', $5, $6) RETURNING *`,
-                [poolInfo.round_id, holeId, targetPlayerId, strokes, entry.id, autoVerified]
+                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [poolInfo.round_id, holeId, targetPlayerId, strokes, newStatus, entry.id, autoVerified]
             );
             result = created[0];
             await client.query(
@@ -131,7 +137,7 @@ router.post('/:poolId/holes/:holeId/players/:playerId', asyncHandler(async (req,
                  VALUES ($1, $2, $3, 'player', $4, 'entry', $5)`,
                 [poolInfo.round_id, holeId, targetPlayerId, req.player.id, strokes]
             );
-        } else if (existing.strokes === strokes) {
+        } else if (valuesMatch) {
             // Ühtib olemasolevaga - punkt 24, kinnitab ja vajadusel verifitseerib
             await client.query(
                 `UPDATE score_entries SET matched_existing = TRUE WHERE id = $1`, [entry.id]
@@ -161,12 +167,12 @@ router.post('/:poolId/holes/:holeId/players/:playerId', asyncHandler(async (req,
             }
 
             if (originalEnteredBy === req.player.id) {
-                // Sama märkija parandab iseenda varasemat sisestust - punkt uus:
-                // lubatud otse, EI teki konflikti, aga logitakse eraldi "self_correction"'ina
+                // Sama märkija parandab iseenda varasemat sisestust - lubatud otse,
+                // EI teki konflikti, aga logitakse eraldi "self_correction"'ina
                 const { rows: updated } = await client.query(
-                    `UPDATE official_scores SET strokes = $1, status = 'normal', last_entry_id = $2, updated_at = now()
-                     WHERE id = $3 RETURNING *`,
-                    [strokes, entry.id, existing.id]
+                    `UPDATE official_scores SET strokes = $1, status = $2, last_entry_id = $3, updated_at = now()
+                     WHERE id = $4 RETURNING *`,
+                    [strokes, newStatus, entry.id, existing.id]
                 );
                 result = updated[0];
                 await client.query(

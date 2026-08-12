@@ -32,6 +32,12 @@ router.post('/register', asyncHandler(async (req, res) => {
     if (!firstName || !lastName) {
         return res.status(400).json({ error: 'Eesnimi ja perekonnanimi on kohustuslikud.' });
     }
+    if (!email || !email.trim()) {
+        return res.status(400).json({ error: 'Email on kohustuslik.' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return res.status(400).json({ error: 'Email ei ole korrektses vormingus.' });
+    }
     if (!isValidPinFormat(pin)) {
         return res.status(400).json({ error: 'PIN peab olema 4-6 numbrit.' });
     }

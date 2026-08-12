@@ -122,6 +122,17 @@
   .score-btn .lbl { font-size: 10px; letter-spacing: 0.04em; color: var(--ink-dim); }
   .score-btn:active { transform: scale(0.96); }
   .score-btn.selected { border: 2px solid var(--accent); background: rgba(255,107,53,0.12); }
+  .score-btn.dnp {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px;
+    border-style: dashed;
+    background: transparent;
+  }
+  .score-btn.dnp .num { font-size: 16px; }
+  .score-btn.dnp .lbl { font-size: 11px; letter-spacing: 0.03em; }
   .score-btn.selected-conflict { border: 2px solid var(--double); background: rgba(217,83,79,0.14); }
   .selected-check { position: absolute; top: 4px; right: 6px; font-size: 11px; color: var(--accent); }
   .score-btn.selected-conflict .selected-check { color: var(--double); }
@@ -200,19 +211,6 @@
   .toast.show { display: block; }
   .sync-note { text-align: center; font-size: 11px; color: var(--ink-faint); margin-top: 10px; }
 
-  .announcement-banner {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 40;
-    background: var(--accent); color: #1a0e08;
-    display: none; align-items: center; gap: 12px;
-    padding: 14px 16px calc(14px + env(safe-area-inset-top)) 16px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-  }
-  .announcement-banner.show { display: flex; animation: slideDown 0.25s ease-out; }
-  @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
-  .announcement-icon { font-size: 20px; flex-shrink: 0; }
-  .announcement-text { flex: 1; font-size: 14px; font-weight: 600; line-height: 1.35; }
-  .announcement-close { cursor: pointer; font-size: 16px; padding: 4px; flex-shrink: 0; opacity: 0.7; }
-
   /* --- More-strokes picker --- */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.6);
@@ -252,10 +250,12 @@
 
 <div class="toast" id="toast"></div>
 
-<div class="announcement-banner" id="announcementBanner">
-  <div class="announcement-icon">📢</div>
-  <div class="announcement-text" id="announcementText"></div>
-  <div class="announcement-close" id="announcementClose">✕</div>
+<div class="modal-backdrop" id="announcementModal">
+  <div class="modal-sheet" style="text-align:center;">
+    <div style="font-size:38px; margin-bottom:10px;">📢</div>
+    <div id="announcementText" style="font-size:16px; font-weight:600; line-height:1.4; margin-bottom:22px;"></div>
+    <button class="nav-btn primary" id="announcementAck" style="width:100%; font-size:15px; padding:13px;">LOETUD</button>
+  </div>
 </div>
 
 <script>
@@ -301,6 +301,7 @@ function generateButtons(par) {
   }
   buttons.sort((a, b) => a.strokes - b.strokes);
   buttons.push({ strokes: null, label: 'MORE', cls: 'more', isMore: true, moreStart: par + 3 });
+  buttons.push({ strokes: null, label: 'RADA JÄI VAHELE', cls: 'dnp', isDnp: true });
   return buttons;
 }
 
@@ -370,16 +371,16 @@ async function checkAnnouncements() {
     const seenId = localStorage.getItem(announcementStorageKey());
     if (String(data.announcement.id) !== seenId) {
       document.getElementById('announcementText').textContent = data.announcement.message;
-      const banner = document.getElementById('announcementBanner');
-      banner.dataset.currentId = data.announcement.id;
-      banner.classList.add('show');
+      const modal = document.getElementById('announcementModal');
+      modal.dataset.currentId = data.announcement.id;
+      modal.classList.add('show');
     }
   } catch (e) { /* ei ole kriitiline, proovime järgmisel korral uuesti */ }
 }
-document.getElementById('announcementClose').onclick = () => {
-  const banner = document.getElementById('announcementBanner');
-  localStorage.setItem(announcementStorageKey(), banner.dataset.currentId);
-  banner.classList.remove('show');
+document.getElementById('announcementAck').onclick = () => {
+  const modal = document.getElementById('announcementModal');
+  localStorage.setItem(announcementStorageKey(), modal.dataset.currentId);
+  modal.classList.remove('show');
 };
 
 let announcementInterval = null;
@@ -458,9 +459,9 @@ function setPendingQueue(q) {
   localStorage.setItem(PENDING_KEY, JSON.stringify(q));
   updateSyncIndicator();
 }
-function queueScore(playerId, holeId, strokes) {
+function queueScore(playerId, holeId, strokes, isDnp) {
   const q = getPendingQueue().filter((item) => !(item.playerId === playerId && item.holeId === holeId));
-  q.push({ playerId, holeId, strokes, queuedAt: Date.now() });
+  q.push({ playerId, holeId, strokes, isDnp: !!isDnp, queuedAt: Date.now() });
   setPendingQueue(q);
 }
 function updateSyncIndicator() {
@@ -492,7 +493,7 @@ async function flushQueue() {
       const res = await fetch(`${API}/api/scorecard/${poolId}/holes/${item.holeId}/players/${item.playerId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-        body: JSON.stringify({ strokes: item.strokes }),
+        body: JSON.stringify(item.isDnp ? { dnp: true } : { strokes: item.strokes }),
       });
       const data = await res.json();
       if (res.status === 409) {
@@ -517,16 +518,16 @@ async function flushQueue() {
 window.addEventListener('online', flushQueue);
 setInterval(flushQueue, 8000);
 
-async function submitScore(playerId, holeId, strokes) {
+async function submitScore(playerId, holeId, strokes, isDnp) {
   try {
     const res = await fetch(`${API}/api/scorecard/${poolId}/holes/${holeId}/players/${playerId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-      body: JSON.stringify({ strokes }),
+      body: JSON.stringify(isDnp ? { dnp: true } : { strokes }),
     });
     const data = await res.json();
     if (res.status === 409) {
-      showToast(`⚠ Tulemus ei kattu — salvestatud: ${data.officialScore.strokes}. Anna korraldajale teada.`);
+      showToast(`⚠ Tulemus ei kattu — salvestatud: ${data.officialScore.strokes ?? '−'}. Anna korraldajale teada.`);
       state.scores[scoreKey(playerId, holeId)] = { hole_id: holeId, player_id: playerId, strokes: data.officialScore.strokes, status: 'conflict' };
       return false;
     }
@@ -535,8 +536,8 @@ async function submitScore(playerId, holeId, strokes) {
     return true;
   } catch (networkErr) {
     // Võrku ei saadud - salvesta kohapeal, mängija saab jätkata
-    queueScore(playerId, holeId, strokes);
-    state.scores[scoreKey(playerId, holeId)] = { hole_id: holeId, player_id: playerId, strokes, status: 'pending_sync' };
+    queueScore(playerId, holeId, strokes, isDnp);
+    state.scores[scoreKey(playerId, holeId)] = { hole_id: holeId, player_id: playerId, strokes: isDnp ? null : strokes, status: isDnp ? 'dnp' : 'pending_sync' };
     return true;
   }
 }
@@ -568,7 +569,8 @@ function renderHole() {
     const summaryRows = state.players.map((p) => {
       const s = state.scores[scoreKey(p.player_id, hole.id)];
       const strokesColor = !s ? 'var(--ink-faint)' : s.status === 'conflict' ? 'var(--double)' : 'var(--ink)';
-      return `<div class="score-summary-row"><span>${p.first_name}</span><span class="strokes" style="color:${strokesColor};">${s ? s.strokes : '–'}</span></div>`;
+      const strokesDisplay = !s ? '–' : (s.status === 'dnp' ? '−' : s.strokes);
+      return `<div class="score-summary-row"><span>${p.first_name}</span><span class="strokes" style="color:${strokesColor};">${strokesDisplay}</span></div>`;
     }).join('');
     body = `<div class="done-card">
       ✓ Kõik tulemused sisestatud
@@ -589,18 +591,21 @@ function renderHole() {
             <div class="player-sub">#${player.player_number}</div>
           </div>
         </div>
-        ${existingScore ? `<div style="font-size:11px; color:var(--ink-faint); margin-bottom:8px;">Eelnevalt märgitud: <strong style="color:${existingScore.status === 'conflict' ? 'var(--double)' : 'var(--accent)'};">${existingScore.strokes}</strong></div>` : ''}
+        ${existingScore ? `<div style="font-size:11px; color:var(--ink-faint); margin-bottom:8px;">Eelnevalt märgitud: <strong style="color:${existingScore.status === 'conflict' ? 'var(--double)' : 'var(--accent)'};">${existingScore.status === 'dnp' ? 'Rada jäi vahele' : existingScore.strokes}</strong></div>` : ''}
         <div class="btn-grid">
           ${buttons.map((b) => {
             let isSelected = false;
             if (existingScore) {
-              isSelected = b.isMore ? existingScore.strokes >= b.moreStart : existingScore.strokes === b.strokes;
+              if (b.isDnp) isSelected = existingScore.status === 'dnp';
+              else if (b.isMore) isSelected = existingScore.status !== 'dnp' && existingScore.strokes >= b.moreStart;
+              else isSelected = existingScore.status !== 'dnp' && existingScore.strokes === b.strokes;
             }
             const selClass = isSelected ? (existingScore.status === 'conflict' ? 'selected-conflict' : 'selected') : '';
+            const numDisplay = b.isDnp ? '−' : (b.isMore ? b.moreStart + '+' : b.strokes);
             return `
-            <button class="score-btn ${b.cls} ${selClass}" data-category="${b.cls}" data-strokes="${b.strokes || ''}" data-more="${b.isMore ? '1' : ''}" data-more-start="${b.moreStart || ''}">
+            <button class="score-btn ${b.cls} ${selClass}" data-category="${b.cls}" data-strokes="${b.strokes || ''}" data-more="${b.isMore ? '1' : ''}" data-more-start="${b.moreStart || ''}" data-dnp="${b.isDnp ? '1' : ''}">
               ${isSelected ? '<span class="selected-check">✓</span>' : ''}
-              <span class="num">${b.isMore ? b.moreStart + '+' : b.strokes}</span>
+              <span class="num">${numDisplay}</span>
               <span class="lbl">${b.label}</span>
             </button>
           `;
@@ -638,6 +643,7 @@ function renderHole() {
     btn.onclick = () => {
       playScoreSound(btn.dataset.category);
       if (btn.dataset.more) openMoreModal();
+      else if (btn.dataset.dnp) handleScore(null, true);
       else handleScore(Number(btn.dataset.strokes));
     };
   });
@@ -748,10 +754,10 @@ function playScoreSound(category) {
   } catch (e) { /* heli pole saadaval, ignoreeri */ }
 }
 
-async function handleScore(strokes) {
+async function handleScore(strokes, isDnp) {
   const hole = state.playOrder[state.holeIdx];
   const player = state.players[state.playerIdx];
-  const ok = await submitScore(player.player_id, hole.id, strokes);
+  const ok = await submitScore(player.player_id, hole.id, strokes, isDnp);
   if (state.playerIdx < state.players.length) state.playerIdx += 1;
   renderHole();
 }

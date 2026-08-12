@@ -262,6 +262,7 @@
     font-variant-numeric: tabular-nums;
   }
   .badge.pending { color: var(--ink-faint); font-weight: 400; }
+  .badge.dnp { color: var(--ink-dim); font-weight: 700; border: 1.5px dashed var(--ink-faint); border-radius: 7px; }
   .badge.stroke1 {
     border-radius: 50%;
     background: var(--eagle);
@@ -364,6 +365,9 @@ function funAvatarFor(playerId) {
 }
 function scoreBadge(strokes, par, status) {
   const conflictClass = status === 'conflict' ? ' conflict' : '';
+  if (status === 'dnp') {
+    return `<span class="badge dnp${conflictClass}">–</span>`;
+  }
   if (strokes === null || strokes === undefined) {
     return `<span class="badge pending">–</span>`;
   }
