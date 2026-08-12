@@ -378,9 +378,13 @@ async function renderOverview(el) {
     loadEvent();
   };
   document.getElementById('savePaymentLink').onclick = async () => {
-    const paymentLink = document.getElementById('paymentLinkInput').value.trim();
+    let paymentLink = document.getElementById('paymentLinkInput').value.trim();
+    if (paymentLink && !/^https?:\/\//i.test(paymentLink)) {
+      paymentLink = 'https://' + paymentLink;
+    }
     try {
       await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ paymentLink }) });
+      document.getElementById('paymentLinkInput').value = paymentLink;
       document.getElementById('paymentLinkMsg').textContent = '✓ Salvestatud';
       state.event.payment_link = paymentLink;
     } catch (e) { document.getElementById('paymentLinkMsg').textContent = ''; alert('Viga: ' + e.message); }
