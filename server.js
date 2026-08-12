@@ -26,6 +26,12 @@ const { errorHandler } = require('./errorHandler');
 
 const app = express();
 
+// Railway (ja enamik hostinguplatvorme) käivad proxy taga - ilma selleta
+// ei tea Express, et ta võib usaldada X-Forwarded-For päist, mis omakorda
+// lõhub express-rate-limit'i (viskab vea IGA päringu peale). "1" tähendab
+// "usalda ühte proxy hüpet", mis vastab Railway seadistusele.
+app.set('trust proxy', 1);
+
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
