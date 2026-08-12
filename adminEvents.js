@@ -60,7 +60,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 router.patch('/:id', asyncHandler(async (req, res) => {
     const { name, location, startDate, endDate, registrationStart, registrationEnd,
-            registrationLimit, logoUrl, brandingTheme, status } = req.body;
+            registrationLimit, logoUrl, brandingTheme, status, paymentLink } = req.body;
 
     const validStatuses = ['draft', 'registration_open', 'registration_closed', 'live', 'finished', 'archived'];
     if (status && !validStatuses.includes(status)) {
@@ -78,12 +78,13 @@ router.patch('/:id', asyncHandler(async (req, res) => {
             registration_limit = COALESCE($7, registration_limit),
             logo_url = COALESCE($8, logo_url),
             branding_theme = COALESCE($9, branding_theme),
-            status = COALESCE($10, status)
-         WHERE id = $11
+            status = COALESCE($10, status),
+            payment_link = COALESCE($11, payment_link)
+         WHERE id = $12
          RETURNING *`,
         [name, location, startDate, endDate, registrationStart, registrationEnd,
          registrationLimit, logoUrl, brandingTheme ? JSON.stringify(brandingTheme) : null,
-         status, req.params.id]
+         status, paymentLink, req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Võistlust ei leitud.' });
     res.json({ event: rows[0] });

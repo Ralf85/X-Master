@@ -70,6 +70,7 @@ router.get('/', asyncHandler(async (req, res) => {
     const { rows } = await pool.query(
         `SELECT r.id, r.status, r.registered_at, r.confirmed_at, r.completed_at,
                 e.id AS event_id, e.name AS event_name, e.slug, e.start_date, e.end_date, e.status AS event_status,
+                e.payment_link,
                 d.name AS division_name
          FROM registrations r
          JOIN events e ON e.id = r.event_id

@@ -342,6 +342,17 @@ async function renderOverview(el) {
     </div>
 
     <div class="card">
+      <h3>💳 Maksmine</h3>
+      <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-6px;">
+        Lisa link (nt LHV maksekorra link, Maksekeskus, või lihtsalt pangakonto info sisaldav leht).
+        Mängijad, kelle registreerimine pole veel kinnitatud, näevad oma "Minu konto" lehel "Maksa" nuppu, mis viib siia lingile.
+      </p>
+      <input id="paymentLinkInput" type="url" placeholder="https://lhv.ee/..." value="${esc(state.event.payment_link || '')}">
+      <button class="btn full" id="savePaymentLink" style="margin-top:10px;">Salvesta makselink</button>
+      <div class="ok-msg" id="paymentLinkMsg"></div>
+    </div>
+
+    <div class="card">
       <h3>Divisjonid</h3>
       <div class="chip-list">${state.divisions.map((d) => `<div class="chip">${esc(d.name)}${d.gender ? ` <span style="opacity:0.6; font-size:11px;">(${d.gender === 'M' ? 'mehed' : 'naised'})</span>` : (d.name === 'Mehed' || d.name === 'Naised' ? ' <span style="color:var(--bogey); font-size:11px;">⚠ soo-märgend puudub</span>' : '')}<span class="x" data-del-div="${d.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
       <div class="row2" style="margin-top:12px;">
@@ -365,6 +376,14 @@ async function renderOverview(el) {
     await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ status: document.getElementById('statusSelect').value }) });
     document.getElementById('statusMsg').textContent = '✓ Salvestatud';
     loadEvent();
+  };
+  document.getElementById('savePaymentLink').onclick = async () => {
+    const paymentLink = document.getElementById('paymentLinkInput').value.trim();
+    try {
+      await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ paymentLink }) });
+      document.getElementById('paymentLinkMsg').textContent = '✓ Salvestatud';
+      state.event.payment_link = paymentLink;
+    } catch (e) { document.getElementById('paymentLinkMsg').textContent = ''; alert('Viga: ' + e.message); }
   };
   document.getElementById('addDiv').onclick = async () => {
     const name = document.getElementById('newDivName').value;

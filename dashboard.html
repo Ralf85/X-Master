@@ -542,13 +542,15 @@ function renderDashboard() {
 }
 
 function rowUpcoming(r) {
-  return `<a href="/event?slug=${r.slug}" class="event-row" style="text-decoration:none; color:inherit; align-items:center;">
+  return `<div class="event-row" style="align-items:center;">
     <div><div class="event-name">${esc(r.event_name)}</div><div class="event-meta">${fmtDate(r.start_date)} · ${esc(r.division_name)}</div></div>
-    <div style="display:flex; align-items:center; gap:8px;">
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
       <span class="badge ${r.status}">${r.status === 'confirmed' ? 'KINNITATUD' : 'REGISTREERITUD'}</span>
-      <span class="btn small" style="pointer-events:none;">Vali pool / Märgi →</span>
+      ${r.status !== 'confirmed' && r.payment_link ? `<a href="${esc(r.payment_link)}" target="_blank" rel="noopener" class="btn small" style="text-decoration:none; display:flex; align-items:center; white-space:nowrap; background:var(--birdie);">💳 Maksa</a>` : ''}
+      <a href="/event?slug=${r.slug}" class="btn small secondary" style="text-decoration:none; display:flex; align-items:center; white-space:nowrap;">Vali pool</a>
+      <a href="/event?slug=${r.slug}" class="btn small" style="text-decoration:none; display:flex; align-items:center; white-space:nowrap;">Märgi →</a>
     </div>
-  </a>`;
+  </div>`;
 }
 function rowPast(r) {
   return `<a href="/event?slug=${r.slug}" class="event-row" style="text-decoration:none; color:inherit;">    <div><div class="event-name">${esc(r.event_name)}</div><div class="event-meta">${fmtDate(r.start_date)} · ${esc(r.division_name)}</div></div>
