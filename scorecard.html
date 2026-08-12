@@ -606,7 +606,7 @@ function renderHole() {
             const selClass = isSelected ? (existingScore.status === 'conflict' ? 'selected-conflict' : 'selected') : '';
             const numDisplay = b.isDnp ? '−' : (b.isMore ? b.moreStart + '+' : b.strokes);
             return `
-            <button class="score-btn ${b.cls} ${selClass}" data-category="${b.cls}" data-strokes="${b.strokes || ''}" data-more="${b.isMore ? '1' : ''}" data-more-start="${b.moreStart || ''}" data-dnp="${b.isDnp ? '1' : ''}">
+            <button class="score-btn ${b.cls} ${selClass}" data-strokes="${b.strokes || ''}" data-more="${b.isMore ? '1' : ''}" data-more-start="${b.moreStart || ''}" data-dnp="${b.isDnp ? '1' : ''}">
               ${isSelected ? '<span class="selected-check">✓</span>' : ''}
               <span class="num">${numDisplay}</span>
               <span class="lbl">${b.label}</span>
@@ -649,7 +649,6 @@ function renderHole() {
   if (nextBtn) nextBtn.onclick = goNextHole;
   document.querySelectorAll('.score-btn').forEach((btn) => {
     btn.onclick = () => {
-      playScoreSound(btn.dataset.category);
       if (btn.dataset.more) openMoreModal();
       else if (btn.dataset.dnp) handleScore(null, true);
       else {
@@ -723,85 +722,6 @@ function speakScore(strokes) {
     if (!audio) return;
     audio.currentTime = 0;
     audio.play().catch(() => { /* brauser blokeeris - ignoreeri vaikselt */ });
-  } catch (e) { /* heli pole saadaval, ignoreeri */ }
-}
-
-let audioCtx = null;
-function tone(freq, start, dur, type, peak) {
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, start);
-  gain.gain.setValueAtTime(0, start);
-  gain.gain.linearRampToValueAtTime(peak, start + 0.008);
-  gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start(start);
-  osc.stop(start + dur);
-}
-function sweep(freqFrom, freqTo, start, dur, type, peak) {
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freqFrom, start);
-  osc.frequency.exponentialRampToValueAtTime(freqTo, start + dur);
-  gain.gain.setValueAtTime(peak, start);
-  gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start(start);
-  osc.stop(start + dur);
-}
-
-function playScoreSound(category) {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const t = audioCtx.currentTime;
-    switch (category) {
-      case 'condor': // haruldasem kui HIO - täiendav fanfaar + cha-ching
-        tone(784, t, 0.09, 'triangle', 0.13);
-        tone(988, t + 0.09, 0.09, 'triangle', 0.13);
-        tone(1175, t + 0.18, 0.1, 'triangle', 0.13);
-        tone(1568, t + 0.30, 0.08, 'square', 0.13);
-        tone(2093, t + 0.38, 0.16, 'square', 0.13);
-        break;
-      case 'hio': // "ka-ching ka-ching"
-        tone(1568, t, 0.08, 'square', 0.13);
-        tone(2093, t + 0.08, 0.08, 'square', 0.13);
-        tone(1568, t + 0.20, 0.08, 'square', 0.13);
-        tone(2093, t + 0.28, 0.14, 'square', 0.13);
-        break;
-      case 'albatross': // suur triumfeeriv 4-noodiline
-        tone(494, t, 0.09, 'triangle', 0.14);
-        tone(587, t + 0.09, 0.09, 'triangle', 0.14);
-        tone(740, t + 0.18, 0.09, 'triangle', 0.14);
-        tone(988, t + 0.27, 0.18, 'triangle', 0.14);
-        break;
-      case 'eagle': // triumfeeriv 3-noodiline
-        tone(523, t, 0.1, 'triangle', 0.14);
-        tone(659, t + 0.1, 0.1, 'triangle', 0.14);
-        tone(784, t + 0.2, 0.18, 'triangle', 0.14);
-        break;
-      case 'birdie': // rõõmus "jeee"
-        sweep(440, 880, t, 0.22, 'sine', 0.15);
-        break;
-      case 'par': // neutraalne lühike piiks
-        tone(500, t, 0.09, 'sine', 0.09);
-        break;
-      case 'bogey': // kerge langev "ohh"
-        sweep(500, 320, t, 0.22, 'sawtooth', 0.1);
-        break;
-      case 'double': // madal mini-sumin
-        tone(300, t, 0.11, 'sawtooth', 0.12);
-        tone(220, t + 0.12, 0.2, 'sawtooth', 0.12);
-        break;
-      case 'more': // "kurb pasun" - kõige negatiivsem
-        sweep(300, 140, t, 0.4, 'sawtooth', 0.12);
-        break;
-      default:
-        tone(720, t, 0.08, 'sine', 0.15);
-    }
   } catch (e) { /* heli pole saadaval, ignoreeri */ }
 }
 
