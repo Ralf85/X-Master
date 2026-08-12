@@ -434,7 +434,6 @@ function renderDashboard() {
   const registeredEventIds = new Set(state.registrations.map((r) => r.event_id));
   const upcoming = state.registrations.filter((r) => !['finished', 'archived'].includes(r.event_status) && !r.completed_at);
   const past = state.registrations.filter((r) => ['finished', 'archived'].includes(r.event_status) || r.completed_at);
-  const openToRegister = state.events.filter((e) => e.status === 'registration_open' && !registeredEventIds.has(e.id));
   const allBrowsable = [...state.events].sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
 
   const color = avatarColor(state.player.first_name + state.player.last_name);
@@ -506,14 +505,9 @@ function renderDashboard() {
       ${upcoming.length === 0 ? '<div class="empty-note">Registreerumisi pole.</div>' : upcoming.map(rowUpcoming).join('')}
     </div>
 
-    <h2>Avatud võistlused</h2>
+    <h2>Võistlused</h2>
     <div class="card">
-      ${openToRegister.length === 0 ? '<div class="empty-note">Hetkel avatud registreerimisi pole.</div>' : openToRegister.map(rowOpen).join('')}
-    </div>
-
-    <h2>Kõik võistlused</h2>
-    <div class="card">
-      ${allBrowsable.length === 0 ? '<div class="empty-note">Ühtegi võistlust pole veel.</div>' : allBrowsable.map(rowBrowse).join('')}
+      ${allBrowsable.length === 0 ? '<div class="empty-note">Ühtegi võistlust pole veel.</div>' : allBrowsable.map((e) => rowBrowse(e, registeredEventIds)).join('')}
     </div>
 
     <h2>Toimunud võistlused</h2>
@@ -535,7 +529,7 @@ function renderDashboard() {
   if (saveGenderBtn) saveGenderBtn.onclick = saveGender;
   document.getElementById('logoutBtn').onclick = logout;
   document.querySelectorAll('[data-register]').forEach((btn) => {
-    btn.onclick = () => openRegisterModal(btn.dataset.register, btn.dataset.name);
+    btn.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); openRegisterModal(btn.dataset.register, btn.dataset.name); };
   });
 
   maybeAutoOpenJoinEvent();
@@ -556,17 +550,22 @@ function rowPast(r) {
   return `<a href="/event?slug=${r.slug}" class="event-row" style="text-decoration:none; color:inherit;">    <div><div class="event-name">${esc(r.event_name)}</div><div class="event-meta">${fmtDate(r.start_date)} · ${esc(r.division_name)}</div></div>
   </a>`;
 }
-function rowOpen(e) {
-  return `<div class="event-row">
-    <div><div class="event-name">${esc(e.name)}</div><div class="event-meta">${fmtDate(e.start_date)}${e.location ? ' · ' + e.location : ''}</div></div>
-    <button class="btn small" data-register="${e.id}" data-name="${esc(e.name)}">Registreeru</button>
-  </div>`;
-}
+const STATUS_LABELS_ET = {
+  draft: 'Mustand',
+  registration_open: 'Registreerimine avatud',
+  registration_closed: 'Registreerimine suletud',
+  live: 'Käimas',
+  finished: 'Lõppenud',
+  archived: 'Arhiveeritud',
+};
 
-function rowBrowse(e) {
-  return `<a href="/event?slug=${e.slug}" class="event-row" style="text-decoration:none; color:inherit;">
+function rowBrowse(e, registeredEventIds) {
+  const canRegister = e.status === 'registration_open' && registeredEventIds && !registeredEventIds.has(e.id);
+  return `<a href="/event?slug=${e.slug}" class="event-row" style="text-decoration:none; color:inherit; align-items:center;">
     <div><div class="event-name">${esc(e.name)}</div><div class="event-meta">${fmtDate(e.start_date)}${e.location ? ' · ' + e.location : ''}</div></div>
-    <span class="badge ${e.status}">${e.status.replace('_',' ')}</span>
+    ${canRegister
+      ? `<button class="btn small" data-register="${e.id}" data-name="${esc(e.name)}">Registreeru</button>`
+      : `<span class="badge ${e.status}">${STATUS_LABELS_ET[e.status] || e.status.replace('_',' ')}</span>`}
   </a>`;
 }
 
