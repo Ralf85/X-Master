@@ -431,8 +431,8 @@ async function loadDashboard() {
 
 function renderDashboard() {
   const registeredEventIds = new Set(state.registrations.map((r) => r.event_id));
-  const upcoming = state.registrations.filter((r) => !['finished', 'archived'].includes(r.event_status));
-  const past = state.registrations.filter((r) => ['finished', 'archived'].includes(r.event_status));
+  const upcoming = state.registrations.filter((r) => !['finished', 'archived'].includes(r.event_status) && !r.completed_at);
+  const past = state.registrations.filter((r) => ['finished', 'archived'].includes(r.event_status) || r.completed_at);
   const openToRegister = state.events.filter((e) => e.status === 'registration_open' && !registeredEventIds.has(e.id));
   const allBrowsable = [...state.events].sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
 

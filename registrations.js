@@ -68,7 +68,7 @@ router.post('/:eventId', asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 router.get('/', asyncHandler(async (req, res) => {
     const { rows } = await pool.query(
-        `SELECT r.id, r.status, r.registered_at, r.confirmed_at,
+        `SELECT r.id, r.status, r.registered_at, r.confirmed_at, r.completed_at,
                 e.id AS event_id, e.name AS event_name, e.slug, e.start_date, e.end_date, e.status AS event_status,
                 d.name AS division_name
          FROM registrations r
@@ -79,6 +79,23 @@ router.get('/', asyncHandler(async (req, res) => {
         [req.player.id]
     );
     res.json({ registrations: rows });
+}));
+
+// ---------------------------------------------------------------------------
+// POST /api/registrations/:eventId/complete
+// Mängija ise märgib, et on oma ringi lõpuni märkinud (kutsutakse
+// scorecard'ist, kui mängija jõuab viimase raja lõppu). Kasutatakse
+// dashboardil "Toimunud võistlused" alla tõstmiseks, ilma et admin
+// peaks kogu event'i "finished" staatusesse panema.
+// ---------------------------------------------------------------------------
+router.post('/:eventId/complete', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+        `UPDATE registrations SET completed_at = now()
+         WHERE event_id = $1 AND player_id = $2 AND completed_at IS NULL
+         RETURNING *`,
+        [req.params.eventId, req.player.id]
+    );
+    res.json({ registration: rows[0] || null });
 }));
 
 // ---------------------------------------------------------------------------

@@ -595,6 +595,7 @@ function renderHole() {
   let body;
   if (roundFinished) {
     body = `<div class="done-card">🏁 Ring on läbitud!<br><span style="font-size:12px">Kõik tulemused on salvestatud.</span></div>`;
+    markRegistrationComplete();
   } else if (complete) {
     const summaryRows = state.players.map((p) => {
       const s = state.scores[scoreKey(p.player_id, hole.id)];
@@ -762,6 +763,17 @@ async function handleScore(strokes, isDnp) {
   const ok = await submitScore(player.player_id, hole.id, strokes, isDnp);
   if (state.playerIdx < state.players.length) state.playerIdx += 1;
   renderHole();
+}
+
+let registrationMarkedComplete = false;
+async function markRegistrationComplete() {
+  if (registrationMarkedComplete || !state.pool?.event_id) return;
+  registrationMarkedComplete = true;
+  try {
+    await fetch(`${API}/api/registrations/${state.pool.event_id}/complete`, {
+      method: 'POST', headers: { Authorization: `Bearer ${state.token}` },
+    });
+  } catch (e) { /* pole hullu, dashboard näitab lihtsalt "tulevaste" all edasi */ }
 }
 
 function goBack() {
