@@ -125,6 +125,7 @@ function fmtDate(d) { return new Date(d).toLocaleDateString('et-EE', { day: 'num
 
 const app = document.getElementById('app');
 let state = { token: localStorage.getItem('dg_player_token'), player: null, registrations: [], events: [] };
+let profileEditOpen = false;
 const urlParams = new URLSearchParams(location.search);
 const joinEventSlug = urlParams.get('event');
 let joinAutoOpened = false;
@@ -445,44 +446,59 @@ function renderDashboard() {
     </div>
 
     <div class="card">
-      <div style="display:flex; align-items:center; gap:16px;">
-        ${state.player.profile_image_url
-          ? `<img src="${state.player.profile_image_url}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;" alt="">`
-          : `<div class="avatar" style="width:64px;height:64px;font-size:22px;background:${color}">${(state.player.first_name[0]||'')+(state.player.last_name[0]||'')}</div>`
-        }
-        <div style="flex:1;">
-          <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Profiilipilt (PNG/JPG/WEBP, max 5MB)</div>
-          <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
-          <button class="btn small" id="avatarPickBtn">Laadi pilt üles</button>
-          ${state.player.profile_image_url ? `<button class="btn small secondary" id="avatarRemoveBtn" style="margin-left:6px;">Eemalda</button>` : ''}
-          <div class="error-msg" id="avatarError"></div>
+      ${profileEditOpen ? `
+        <div style="display:flex; align-items:center; gap:16px;">
+          ${state.player.profile_image_url
+            ? `<img src="${state.player.profile_image_url}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;" alt="">`
+            : `<div class="avatar" style="width:64px;height:64px;font-size:22px;background:${color}">${(state.player.first_name[0]||'')+(state.player.last_name[0]||'')}</div>`
+          }
+          <div style="flex:1;">
+            <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Profiilipilt (PNG/JPG/WEBP, max 5MB)</div>
+            <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+            <button class="btn small" id="avatarPickBtn">Laadi pilt üles</button>
+            ${state.player.profile_image_url ? `<button class="btn small secondary" id="avatarRemoveBtn" style="margin-left:6px;">Eemalda</button>` : ''}
+            <div class="error-msg" id="avatarError"></div>
+          </div>
         </div>
-      </div>
-      <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
-        <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Nimi</div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <input id="editFirstName" value="${esc(state.player.first_name)}" placeholder="Eesnimi">
-          <input id="editLastName" value="${esc(state.player.last_name)}" placeholder="Perekonnanimi">
+        <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
+          <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Nimi</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <input id="editFirstName" value="${esc(state.player.first_name)}" placeholder="Eesnimi">
+            <input id="editLastName" value="${esc(state.player.last_name)}" placeholder="Perekonnanimi">
+          </div>
+          <button class="btn small" id="saveNameBtn" style="margin-top:10px;">Salvesta nimi</button>
+          <div class="error-msg" id="nameError"></div>
+          <div id="nameOk" style="color:var(--birdie); font-size:12px; margin-top:6px;"></div>
         </div>
-        <button class="btn small" id="saveNameBtn" style="margin-top:10px;">Salvesta nimi</button>
-        <div class="error-msg" id="nameError"></div>
-        <div id="nameOk" style="color:var(--birdie); font-size:12px; margin-top:6px;"></div>
-      </div>
-      <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
-        <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Sünniaeg ja sugu</div>
-        ${!state.player.gender || !state.player.birth_date ? `<div style="color:var(--bogey); font-size:12px; margin-bottom:8px;">⚠ Puudub - täida ära, muidu ei saa võistlustele registreeruda.</div>` : ''}
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <input id="editBirthDate" type="date" value="${state.player.birth_date ? String(state.player.birth_date).slice(0,10) : ''}">
-          <select id="editGender">
-            <option value="">Vali...</option>
-            <option value="M" ${state.player.gender === 'M' ? 'selected' : ''}>Mees</option>
-            <option value="N" ${state.player.gender === 'N' ? 'selected' : ''}>Naine</option>
-          </select>
+        <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
+          <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Sünniaeg ja sugu</div>
+          ${!state.player.gender || !state.player.birth_date ? `<div style="color:var(--bogey); font-size:12px; margin-bottom:8px;">⚠ Puudub - täida ära, muidu ei saa võistlustele registreeruda.</div>` : ''}
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <input id="editBirthDate" type="date" value="${state.player.birth_date ? String(state.player.birth_date).slice(0,10) : ''}">
+            <select id="editGender">
+              <option value="">Vali...</option>
+              <option value="M" ${state.player.gender === 'M' ? 'selected' : ''}>Mees</option>
+              <option value="N" ${state.player.gender === 'N' ? 'selected' : ''}>Naine</option>
+            </select>
+          </div>
+          <button class="btn small" id="saveGenderBtn" style="margin-top:10px;">Salvesta</button>
+          <div class="error-msg" id="genderError"></div>
+          <div id="genderOk" style="color:var(--birdie); font-size:12px; margin-top:6px;"></div>
         </div>
-        <button class="btn small" id="saveGenderBtn" style="margin-top:10px;">Salvesta</button>
-        <div class="error-msg" id="genderError"></div>
-        <div id="genderOk" style="color:var(--birdie); font-size:12px; margin-top:6px;"></div>
-      </div>
+        <button class="btn small secondary" id="toggleProfileEdit" style="margin-top:16px; width:100%;">Peida</button>
+      ` : `
+        <div style="display:flex; align-items:center; gap:14px;">
+          ${state.player.profile_image_url
+            ? `<img src="${state.player.profile_image_url}" style="width:56px;height:56px;border-radius:50%;object-fit:cover; flex-shrink:0;" alt="">`
+            : `<div class="avatar" style="width:56px;height:56px;font-size:19px;background:${color}; flex-shrink:0;">${(state.player.first_name[0]||'')+(state.player.last_name[0]||'')}</div>`
+          }
+          <div style="flex:1; min-width:0;">
+            <div style="font-family:var(--font-display); font-weight:600; font-size:16px; color:var(--ink);">${esc(state.player.first_name)} ${esc(state.player.last_name)}</div>
+            ${!state.player.gender || !state.player.birth_date ? `<div style="color:var(--bogey); font-size:11.5px; margin-top:3px;">⚠ Sünniaeg/sugu puudub</div>` : `<div style="color:var(--ink-faint); font-size:11.5px; margin-top:3px;">#${state.player.player_number}</div>`}
+          </div>
+          <button class="btn small secondary" id="toggleProfileEdit" style="flex-shrink:0;">Muuda profiili</button>
+        </div>
+      `}
     </div>
 
     <h2>Minu tulevased võistlused</h2>
@@ -506,12 +522,17 @@ function renderDashboard() {
     </div>
   `;
 
-  document.getElementById('avatarPickBtn').onclick = () => document.getElementById('avatarInput').click();
-  document.getElementById('avatarInput').onchange = uploadAvatar;
+  document.getElementById('toggleProfileEdit').onclick = () => { profileEditOpen = !profileEditOpen; renderDashboard(); };
+  const avatarPickBtn = document.getElementById('avatarPickBtn');
+  if (avatarPickBtn) avatarPickBtn.onclick = () => document.getElementById('avatarInput').click();
+  const avatarInput = document.getElementById('avatarInput');
+  if (avatarInput) avatarInput.onchange = uploadAvatar;
   const removeBtn = document.getElementById('avatarRemoveBtn');
   if (removeBtn) removeBtn.onclick = removeAvatar;
-  document.getElementById('saveNameBtn').onclick = saveName;
-  document.getElementById('saveGenderBtn').onclick = saveGender;
+  const saveNameBtn = document.getElementById('saveNameBtn');
+  if (saveNameBtn) saveNameBtn.onclick = saveName;
+  const saveGenderBtn = document.getElementById('saveGenderBtn');
+  if (saveGenderBtn) saveGenderBtn.onclick = saveGender;
   document.getElementById('logoutBtn').onclick = logout;
   document.querySelectorAll('[data-register]').forEach((btn) => {
     btn.onclick = () => openRegisterModal(btn.dataset.register, btn.dataset.name);
