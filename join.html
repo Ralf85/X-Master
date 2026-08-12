@@ -77,6 +77,7 @@
 const params = new URLSearchParams(location.search);
 const slug = params.get('event');
 if (slug) {
+  document.getElementById('ctaBtn').href = `/dashboard?event=${encodeURIComponent(slug)}`;
   fetch(`/api/events/${slug}`).then((r) => r.ok ? r.json() : null).then((data) => {
     if (!data) return;
     document.getElementById('title').textContent = data.event.name;

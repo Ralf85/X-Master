@@ -185,6 +185,20 @@ function renderEvents() {
       loadEvents();
     };
   });
+  document.querySelectorAll('[data-copy-link]').forEach((el) => {
+    el.onclick = async (ev) => {
+      ev.stopPropagation();
+      const link = `${location.origin}/join?event=${el.dataset.copyLink}`;
+      const original = el.textContent;
+      try {
+        await navigator.clipboard.writeText(link);
+        el.textContent = '✓ Kopeeritud';
+      } catch (e) {
+        prompt('Kopeeri link:', link);
+      }
+      setTimeout(() => { el.textContent = original; }, 1800);
+    };
+  });
 }
 
 function eventRow(e) {
@@ -192,6 +206,7 @@ function eventRow(e) {
     <div><div class="event-name">${e.name}</div><div class="event-meta">${e.start_date ? new Date(e.start_date).toLocaleDateString('et-EE') : ''} ${e.location ? '· ' + e.location : ''}</div></div>
     <div style="display:flex; align-items:center; gap:8px;">
       <span class="status-pill ${e.status}">${e.status.replace('_',' ')}</span>
+      <span data-copy-link="${e.slug}" style="cursor:pointer; color:var(--ink-dim); font-size:11px; padding:4px 9px; border:1px solid var(--line); border-radius:6px; white-space:nowrap;">🔗 Registreerimislink</span>
       <span data-delete-event="${e.id}" data-event-name="${e.name}" style="cursor:pointer; color:var(--double); font-size:11px; padding:4px 9px; border:1px solid var(--double); border-radius:6px;">Kustuta</span>
     </div>
   </div>`;

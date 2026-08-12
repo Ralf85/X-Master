@@ -99,13 +99,22 @@ function fmtDate(d) { return new Date(d).toLocaleDateString('et-EE', { day: 'num
 
 const app = document.getElementById('app');
 let state = { token: localStorage.getItem('dg_player_token'), player: null, registrations: [], events: [] };
+const urlParams = new URLSearchParams(location.search);
+const joinEventSlug = urlParams.get('event');
+let joinAutoOpened = false;
 
 function renderAuth(mode, errorMsg) {
   mode = mode || 'login';
+  const joinBanner = joinEventSlug
+    ? `<div style="background:rgba(255,107,53,0.1); border:1px solid rgba(255,107,53,0.35); border-radius:10px; padding:10px 12px; margin-bottom:16px; font-size:12.5px; color:var(--ink-dim);">
+        🏆 Liitud võistlusega${joinEventName ? `: <strong style="color:var(--ink)">${joinEventName}</strong>` : '...'}. Tee konto (või logi sisse) ja suuname su kohe registreerimise juurde.
+       </div>`
+    : '';
   app.innerHTML = `
     <div class="card">
       <h1>Minu konto</h1>
       <p class="sub">Discgolfi konto - kehtib kõikidel võistlustel.</p>
+      ${joinBanner}
       <div class="tabs">
         <div class="tab ${mode==='login'?'active':''}" id="tabLogin">Logi sisse</div>
         <div class="tab ${mode==='register'?'active':''}" id="tabRegister">Loo konto</div>
@@ -233,6 +242,37 @@ function logout() {
   renderAuth('login');
 }
 
+// ---------------------------------------------------------------------------
+// Registreerimislingi (/dashboard?event=slug) automaatne käsitlus:
+// kui tuldi konkreetse võistluse liitumislingilt, tõmmatakse nimi ette
+// ja peale sisselogimist/konto loomist avatakse kohe selle event'i
+// registreerimise hüpikaken (või suunatakse otse edasi, kui juba liitunud).
+// ---------------------------------------------------------------------------
+let joinEventName = null;
+if (joinEventSlug) {
+  fetch(`/api/events/${joinEventSlug}`).then((r) => r.ok ? r.json() : null).then((d) => {
+    if (!d) return;
+    joinEventName = d.event.name;
+    if (!state.token) renderAuth('register');
+  }).catch(() => {});
+}
+
+function maybeAutoOpenJoinEvent() {
+  if (!joinEventSlug || joinAutoOpened) return;
+  const alreadyRegistered = state.registrations.some((r) => r.slug === joinEventSlug);
+  if (alreadyRegistered) {
+    joinAutoOpened = true;
+    location.href = `/event?slug=${joinEventSlug}`;
+    return;
+  }
+  const event = state.events.find((e) => e.slug === joinEventSlug);
+  if (!event) return;
+  if (event.status === 'registration_open') {
+    joinAutoOpened = true;
+    openRegisterModal(event.id, event.name);
+  }
+}
+
 async function loadDashboard() {
   app.innerHTML = `<div class="card">Laen...</div>`;
   try {
@@ -322,6 +362,8 @@ function renderDashboard() {
   document.querySelectorAll('[data-register]').forEach((btn) => {
     btn.onclick = () => openRegisterModal(btn.dataset.register, btn.dataset.name);
   });
+
+  maybeAutoOpenJoinEvent();
 }
 
 function rowUpcoming(r) {
@@ -377,11 +419,12 @@ document.getElementById('regConfirm').onclick = async () => {
     const data = await res.json();
     if (!res.ok) { document.getElementById('regError').textContent = data.error; return; }
     regModal.classList.remove('show');
+    if (joinEventSlug) { location.href = `/event?slug=${joinEventSlug}`; return; }
     loadDashboard();
   } catch (e) { document.getElementById('regError').textContent = 'Ühendus ebaõnnestus.'; }
 };
 
-if (state.token) loadDashboard(); else renderAuth('login');
+if (state.token) loadDashboard(); else renderAuth(joinEventSlug ? 'register' : 'login');
 </script>
 </body>
 </html>
