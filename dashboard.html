@@ -159,7 +159,7 @@ function renderAuth(mode, errorMsg) {
       <input id="pin" type="password" inputmode="numeric" placeholder="••••">
       <button class="btn full" id="doLogin">Logi sisse</button>
       <div style="text-align:center; margin-top:10px;"><span id="forgotPinLink" style="color:var(--ink-faint); font-size:12.5px; cursor:pointer; text-decoration:underline;">Unustasin PIN-i</span></div>
-      <div class="error-msg">${errorMsg || ''}</div>`;
+      <div class="error-msg" id="loginError">${errorMsg || ''}</div>`;
     document.getElementById('doLogin').onclick = doLogin;
     document.getElementById('forgotPinLink').onclick = () => renderForgotPin();
   } else {
@@ -178,7 +178,7 @@ function renderAuth(mode, errorMsg) {
       <label>Email</label><input id="regEmail" type="email" required>
       <label>Telefon (valikuline)</label><input id="regPhone" type="tel" inputmode="tel">
       <button class="btn full" id="doRegister">Loo konto</button>
-      <div class="error-msg">${errorMsg || ''}</div>`;
+      <div class="error-msg" id="registerError">${errorMsg || ''}</div>`;
     document.getElementById('doRegister').onclick = doRegister;
   }
 }
@@ -254,6 +254,8 @@ function renderResetPin(identifier) {
 }
 
 async function doLogin() {
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
   const identifier = document.getElementById('pid').value.trim();
   const pin = document.getElementById('pin').value;
   try {
@@ -262,20 +264,22 @@ async function doLogin() {
       body: JSON.stringify({ identifier, pin }),
     });
     const data = await res.json();
-    if (!res.ok) return renderAuth('login', data.error);
+    if (!res.ok) { errEl.textContent = data.error; return; }
     state.token = data.token;
     localStorage.setItem('dg_player_token', data.token);
     loadDashboard();
-  } catch (e) { renderAuth('login', 'Ühendus ebaõnnestus.'); }
+  } catch (e) { errEl.textContent = 'Ühendus ebaõnnestus.'; }
 }
 
 async function doRegister() {
+  const errEl = document.getElementById('registerError');
+  errEl.textContent = '';
   const email = document.getElementById('regEmail').value.trim();
-  if (!email) return renderAuth('register', 'Email on kohustuslik.');
+  if (!email) { errEl.textContent = 'Email on kohustuslik.'; return; }
   const birthDate = document.getElementById('regBirthDate').value;
   const gender = document.getElementById('regGender').value;
-  if (!birthDate) return renderAuth('register', 'Sünniaeg on kohustuslik.');
-  if (!gender) return renderAuth('register', 'Sugu on kohustuslik.');
+  if (!birthDate) { errEl.textContent = 'Sünniaeg on kohustuslik.'; return; }
+  if (!gender) { errEl.textContent = 'Sugu on kohustuslik.'; return; }
   const body = {
     firstName: document.getElementById('firstName').value,
     lastName: document.getElementById('lastName').value,
@@ -291,11 +295,11 @@ async function doRegister() {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok) return renderAuth('register', data.error);
+    if (!res.ok) { errEl.textContent = data.error; return; }
     state.token = data.token;
     localStorage.setItem('dg_player_token', data.token);
     loadDashboard();
-  } catch (e) { renderAuth('register', 'Ühendus ebaõnnestus.'); }
+  } catch (e) { errEl.textContent = 'Ühendus ebaõnnestus.'; }
 }
 
 async function uploadAvatar(e) {
