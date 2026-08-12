@@ -651,7 +651,10 @@ function renderHole() {
       playScoreSound(btn.dataset.category);
       if (btn.dataset.more) openMoreModal();
       else if (btn.dataset.dnp) handleScore(null, true);
-      else handleScore(Number(btn.dataset.strokes));
+      else {
+        speakScore(Number(btn.dataset.strokes));
+        handleScore(Number(btn.dataset.strokes));
+      }
     };
   });
   updateSyncIndicator();
@@ -693,6 +696,33 @@ async function loadJokeCorner() {
 // Igal tulemuse tüübil oma heli - genereeritud Web Audio API-ga, ei vaja
 // välist helifaili. Vaikselt ignoreerib, kui heli pole saadaval.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Tulemuse häälega kinnitamine - kasutab brauseri sisseehitatud
+// kõnesüntesaatorit (Web Speech API), ei vaja ühtegi allalaadimist ega
+// helifaili. Aitab vältida pettust, kus märkija ütleb valjult teistsuguse
+// tulemuse kui tegelikult sisestab.
+// ---------------------------------------------------------------------------
+const SCORE_VOICE_TEXT = {
+  1: 'Hollar!',
+  2: 'Böördi!',
+  3: 'Parr!',
+  4: 'Bougy!',
+  5: 'Tupla!',
+};
+function speakScore(strokes) {
+  try {
+    if (!window.speechSynthesis) return;
+    const text = strokes >= 6 ? 'Oeh!' : (SCORE_VOICE_TEXT[strokes] || String(strokes));
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'et-EE';
+    utter.rate = 1.0;
+    utter.pitch = 1.0;
+    utter.volume = 1.0;
+    window.speechSynthesis.cancel(); // katkesta eelmine, kui see veel räägib
+    window.speechSynthesis.speak(utter);
+  } catch (e) { /* kõnesüntees pole saadaval, ignoreeri */ }
+}
+
 let audioCtx = null;
 function tone(freq, start, dur, type, peak) {
   const osc = audioCtx.createOscillator();
@@ -815,7 +845,7 @@ function openMoreModal() {
 }
 document.getElementById('moreMinus').onclick = () => { if (moreVal > 1) moreVal--; moreValEl.textContent = moreVal; };
 document.getElementById('morePlus').onclick = () => { moreVal++; moreValEl.textContent = moreVal; };
-document.getElementById('moreConfirm').onclick = () => { moreModal.classList.remove('show'); handleScore(moreVal); };
+document.getElementById('moreConfirm').onclick = () => { moreModal.classList.remove('show'); speakScore(moreVal); handleScore(moreVal); };
 
 if (state.token) loadScorecard(); else renderLogin();
 </script>
