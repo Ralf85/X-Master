@@ -247,11 +247,19 @@ async function renderOverview(el) {
   `;
   document.getElementById('sendAnnounceBtn').onclick = async () => {
     const text = document.getElementById('announceText').value.trim();
+    const statusEl = document.getElementById('announceStatus');
+    statusEl.textContent = '';
     if (!text) return;
-    await api(`/api/admin/announcements/${eventId}`, { method: 'POST', body: JSON.stringify({ message: text }) });
-    document.getElementById('announceStatus').textContent = '✓ Saadetud';
-    document.getElementById('announceText').value = '';
-    renderTab();
+    try {
+      await api(`/api/admin/announcements/${eventId}`, { method: 'POST', body: JSON.stringify({ message: text }) });
+      statusEl.style.color = 'var(--birdie)';
+      statusEl.textContent = '✓ Saadetud';
+      document.getElementById('announceText').value = '';
+      setTimeout(renderTab, 1200);
+    } catch (e) {
+      statusEl.style.color = 'var(--double)';
+      statusEl.textContent = 'Viga: ' + e.message;
+    }
   };
   document.getElementById('saveStatus').onclick = async () => {
     await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ status: document.getElementById('statusSelect').value }) });
