@@ -19,7 +19,8 @@ router.get('/', asyncHandler(async (req, res) => {
     const search = (req.query.search || '').trim();
     const { rows } = await pool.query(
         `SELECT id, player_number, first_name, last_name, email, phone,
-                pdga_number, country, is_claimed, created_at
+                pdga_number, country, birth_date, gender, profile_image_url,
+                is_claimed, created_at
          FROM players
          WHERE $1 = '' OR first_name ILIKE '%'||$1||'%' OR last_name ILIKE '%'||$1||'%'
                OR player_number::text ILIKE '%'||$1||'%' OR email ILIKE '%'||$1||'%'
