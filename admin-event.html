@@ -173,6 +173,7 @@ function render() {
       ${tabBtn('registrations', 'Registreerumised')}
       ${tabBtn('rounds', 'Rajad & Poolid')}
       ${tabBtn('conflicts', 'Konfliktid')}
+      ${tabBtn('announcements', 'Teated')}
     </div>
     <div id="tabContent"></div>
   `;
@@ -193,23 +194,19 @@ function renderTab() {
   if (state.activeTab === 'registrations') return renderRegistrations(el);
   if (state.activeTab === 'rounds') return renderRounds(el);
   if (state.activeTab === 'conflicts') return renderConflicts(el);
+  if (state.activeTab === 'announcements') return renderAnnouncements(el);
 }
 
 // ---------------------------------------------------------------------------
-// OVERVIEW: status, divisions, parks
+// TEATED (announcements) - eraldi tab, endine osa "Ülevaade" alt
 // ---------------------------------------------------------------------------
-async function renderOverview(el) {
-  const statuses = ['draft','registration_open','registration_closed','live','finished','archived'];
+async function renderAnnouncements(el) {
+  el.innerHTML = `<div class="card">Laen...</div>`;
   let announcements = [];
   try {
     const annData = await api(`/api/admin/announcements/${eventId}`);
     announcements = annData.announcements;
   } catch (e) { /* pole hullu, näita lihtsalt tühja ajalugu */ }
-  let jokes = [];
-  try {
-    const jokeData = await api(`/api/admin/jokes?eventId=${eventId}`);
-    jokes = jokeData.jokes;
-  } catch (e) { /* pole hullu, näita lihtsalt tühja nimekirja */ }
 
   el.innerHTML = `
     <div class="card">
@@ -224,7 +221,37 @@ async function renderOverview(el) {
           ${announcements.map((a) => `<div style="font-size:12.5px; color:var(--ink-dim); padding:5px 0;">${new Date(a.created_at).toLocaleTimeString('et-EE')} — ${a.message}</div>`).join('')}
         </div>` : ''}
     </div>
+  `;
+  document.getElementById('sendAnnounceBtn').onclick = async () => {
+    const text = document.getElementById('announceText').value.trim();
+    const statusEl = document.getElementById('announceStatus');
+    statusEl.textContent = '';
+    if (!text) return;
+    try {
+      await api(`/api/admin/announcements/${eventId}`, { method: 'POST', body: JSON.stringify({ message: text }) });
+      statusEl.style.color = 'var(--birdie)';
+      statusEl.textContent = '✓ Saadetud';
+      document.getElementById('announceText').value = '';
+      setTimeout(renderTab, 1200);
+    } catch (e) {
+      statusEl.style.color = 'var(--double)';
+      statusEl.textContent = 'Viga: ' + e.message;
+    }
+  };
+}
 
+// ---------------------------------------------------------------------------
+// OVERVIEW: status, divisions, parks
+// ---------------------------------------------------------------------------
+async function renderOverview(el) {
+  const statuses = ['draft','registration_open','registration_closed','live','finished','archived'];
+  let jokes = [];
+  try {
+    const jokeData = await api(`/api/admin/jokes?eventId=${eventId}`);
+    jokes = jokeData.jokes;
+  } catch (e) { /* pole hullu, näita lihtsalt tühja nimekirja */ }
+
+  el.innerHTML = `
     <div class="card">
       <h3>Staatus</h3>
       <select id="statusSelect">${statuses.map((s) => `<option value="${s}" ${s===state.event.status?'selected':''}>${s}</option>`).join('')}</select>
@@ -282,22 +309,6 @@ async function renderOverview(el) {
       </div>
     </div>
   `;
-  document.getElementById('sendAnnounceBtn').onclick = async () => {
-    const text = document.getElementById('announceText').value.trim();
-    const statusEl = document.getElementById('announceStatus');
-    statusEl.textContent = '';
-    if (!text) return;
-    try {
-      await api(`/api/admin/announcements/${eventId}`, { method: 'POST', body: JSON.stringify({ message: text }) });
-      statusEl.style.color = 'var(--birdie)';
-      statusEl.textContent = '✓ Saadetud';
-      document.getElementById('announceText').value = '';
-      setTimeout(renderTab, 1200);
-    } catch (e) {
-      statusEl.style.color = 'var(--double)';
-      statusEl.textContent = 'Viga: ' + e.message;
-    }
-  };
   document.getElementById('saveStatus').onclick = async () => {
     await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ status: document.getElementById('statusSelect').value }) });
     document.getElementById('statusMsg').textContent = '✓ Salvestatud';

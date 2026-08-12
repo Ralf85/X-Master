@@ -143,7 +143,7 @@ router.get('/round/:roundId/park/:parkId', asyncHandler(async (req, res) => {
     const parkPar = holes.reduce((sum, h) => sum + h.par, 0);
 
     const { rows: scores } = await pool.query(
-        `SELECT os.player_id, os.hole_id, os.strokes, p.first_name, p.last_name, p.player_number
+        `SELECT os.player_id, os.hole_id, os.strokes, p.first_name, p.last_name, p.player_number, p.profile_image_url
          FROM official_scores os
          JOIN players p ON p.id = os.player_id
          WHERE os.round_id = $1 AND os.hole_id = ANY($2::int[])`,
@@ -159,6 +159,7 @@ router.get('/round/:roundId/park/:parkId', asyncHandler(async (req, res) => {
                 firstName: s.first_name,
                 lastName: s.last_name,
                 playerNumber: s.player_number,
+                profileImageUrl: s.profile_image_url,
                 strokes: 0,
                 holesCompleted: 0,
             };
