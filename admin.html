@@ -119,21 +119,26 @@ function slugify(s) {
 async function loadJokesList() {
   const listEl = document.getElementById('jokesList');
   listEl.innerHTML = 'Laen...';
-  const res = await fetch('/api/admin/jokes', { headers: { Authorization: `Bearer ${state.token}` } });
-  const data = await res.json();
-  listEl.innerHTML = data.jokes.length === 0
-    ? '<div class="empty-note">Ühtegi anekdooti pole veel lisatud.</div>'
-    : data.jokes.map((j) => `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);">
-          <span style="font-size:13px; color:var(--ink-dim);">${j.template_text}</span>
-          <span data-del-joke="${j.id}" style="cursor:pointer; color:var(--double); flex-shrink:0;">✕</span>
-        </div>`).join('');
-  document.querySelectorAll('[data-del-joke]').forEach((el) => {
-    el.onclick = async () => {
-      await fetch(`/api/admin/jokes/${el.dataset.delJoke}`, { method: 'DELETE', headers: { Authorization: `Bearer ${state.token}` } });
-      loadJokesList();
-    };
-  });
+  try {
+    const res = await fetch('/api/admin/jokes', { headers: { Authorization: `Bearer ${state.token}` } });
+    const data = await res.json();
+    if (!res.ok) { listEl.innerHTML = `<div class="error-msg">Viga: ${data.error || 'tundmatu viga'}</div>`; return; }
+    listEl.innerHTML = data.jokes.length === 0
+      ? '<div class="empty-note">Ühtegi anekdooti pole veel lisatud.</div>'
+      : data.jokes.map((j) => `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);">
+            <span style="font-size:13px; color:var(--ink-dim);">${j.template_text}</span>
+            <span data-del-joke="${j.id}" style="cursor:pointer; color:var(--double); flex-shrink:0;">✕</span>
+          </div>`).join('');
+    document.querySelectorAll('[data-del-joke]').forEach((el) => {
+      el.onclick = async () => {
+        await fetch(`/api/admin/jokes/${el.dataset.delJoke}`, { method: 'DELETE', headers: { Authorization: `Bearer ${state.token}` } });
+        loadJokesList();
+      };
+    });
+  } catch (e) {
+    listEl.innerHTML = `<div class="error-msg">Ühendus ebaõnnestus: ${e.message}</div>`;
+  }
 }
 
 async function loadEvents() {
@@ -206,13 +211,15 @@ function renderEvents() {
     document.getElementById('jokeError').textContent = '';
     if (!text) return;
     try {
-      await fetch('/api/admin/jokes', {
+      const res = await fetch('/api/admin/jokes', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
         body: JSON.stringify({ templateText: text }),
       });
+      const data = await res.json();
+      if (!res.ok) { document.getElementById('jokeError').textContent = 'Viga: ' + (data.error || 'tundmatu viga'); return; }
       document.getElementById('newJokeText').value = '';
       await loadJokesList();
-    } catch (e) { document.getElementById('jokeError').textContent = 'Ühendus ebaõnnestus.'; }
+    } catch (e) { document.getElementById('jokeError').textContent = 'Ühendus ebaõnnestus: ' + e.message; }
   };
   document.getElementById('logoutBtn').onclick = logout;
   wireThemeSelector();
