@@ -329,8 +329,8 @@ function renderLogin(errorMsg) {
     <div class="login-card">
       <h1>Scorecard</h1>
       <p>Logi sisse, et tulemusi märkida.</p>
-      <label for="pid">Player ID</label>
-      <input id="pid" type="number" inputmode="numeric" placeholder="nt 18472">
+      <label for="pid">Player ID või email</label>
+      <input id="pid" type="text" inputmode="email" placeholder="nt 18472 või sina@email.ee">
       <label for="pin">PIN</label>
       <input id="pin" type="password" inputmode="numeric" placeholder="••••">
       <button class="btn-primary" id="loginBtn">Logi sisse</button>
@@ -340,12 +340,12 @@ function renderLogin(errorMsg) {
 }
 
 async function doLogin() {
-  const playerNumber = document.getElementById('pid').value;
+  const identifier = document.getElementById('pid').value.trim();
   const pin = document.getElementById('pin').value;
   try {
     const res = await fetch(`${API}/api/players/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerNumber: Number(playerNumber), pin }),
+      body: JSON.stringify({ identifier, pin }),
     });
     const data = await res.json();
     if (!res.ok) return renderLogin(data.error || 'Sisselogimine ebaõnnestus.');

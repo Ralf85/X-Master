@@ -64,16 +64,20 @@ router.post('/register', asyncHandler(async (req, res) => {
 // Punkt 5: Player ID + PIN
 // ---------------------------------------------------------------------------
 router.post('/login', asyncHandler(async (req, res) => {
-    const { playerNumber, pin } = req.body;
-    if (!playerNumber || !pin) {
-        return res.status(400).json({ error: 'Player ID ja PIN on kohustuslikud.' });
+    const { identifier, pin } = req.body;
+    if (!identifier || !pin) {
+        return res.status(400).json({ error: 'Player ID/email ja PIN on kohustuslikud.' });
     }
 
-    const { rows } = await pool.query('SELECT * FROM players WHERE player_number = $1', [playerNumber]);
+    const trimmed = String(identifier).trim();
+    const isEmail = trimmed.includes('@');
+    const { rows } = isEmail
+        ? await pool.query('SELECT * FROM players WHERE LOWER(email) = LOWER($1)', [trimmed])
+        : await pool.query('SELECT * FROM players WHERE player_number = $1', [trimmed]);
     const player = rows[0];
 
     if (!player || !(await comparePin(pin, player.pin_hash))) {
-        return res.status(401).json({ error: 'Vale Player ID või PIN.' });
+        return res.status(401).json({ error: 'Vale Player ID/email või PIN.' });
     }
 
     res.json({ player: publicPlayer(player), token: signPlayerToken(player) });
