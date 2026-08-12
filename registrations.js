@@ -66,4 +66,34 @@ router.get('/', asyncHandler(async (req, res) => {
     res.json({ registrations: rows });
 }));
 
+// ---------------------------------------------------------------------------
+// DELETE /api/registrations/:id
+// Mängija eemaldab ennast ise võistluselt (ainult enda registreerimist,
+// ja ainult kuni võistlus pole veel live/lõppenud - kui skoorimine on
+// alanud, tuleb pöörduda korraldaja poole).
+// ---------------------------------------------------------------------------
+router.delete('/:id', asyncHandler(async (req, res) => {
+    const { rows: regRows } = await pool.query(
+        `SELECT r.*, e.status AS event_status, e.name AS event_name
+         FROM registrations r JOIN events e ON e.id = r.event_id
+         WHERE r.id = $1`,
+        [req.params.id]
+    );
+    const registration = regRows[0];
+    if (!registration) return res.status(404).json({ error: 'Registreerimist ei leitud.' });
+    if (registration.player_id !== req.player.id) {
+        return res.status(403).json({ error: 'See ei ole sinu registreerimine.' });
+    }
+    if (['live', 'finished', 'archived'].includes(registration.event_status)) {
+        return res.status(400).json({ error: 'Võistlus on juba alanud või lõppenud - registreerimist ei saa enam ise eemaldada. Võta ühendust korraldajaga.' });
+    }
+
+    // Teadaolev konks: pool_players.registration_id ei kaskaadi kustutamisel,
+    // nii et see tuleb enne käsitsi puhastada.
+    await pool.query('DELETE FROM pool_players WHERE registration_id = $1', [req.params.id]);
+    await pool.query('DELETE FROM registrations WHERE id = $1', [req.params.id]);
+
+    res.json({ success: true });
+}));
+
 module.exports = router;

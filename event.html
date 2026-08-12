@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg-deep: #0a1512; --bg-panel: #0f1e1a; --bg-panel-2: #142c25;
-    --ink: #eaf2ee; --ink-dim: #7fa396; --ink-faint: #4d6a60;
-    --line: rgba(234, 242, 238, 0.09); --accent: #ff6b35;
-    --birdie: #4fbf82; --bogey: #e8974a; --double: #d9534f;
+    --bg-deep: #7EBAB5; --bg-panel: #ffffff; --bg-panel-2: #dceeec;
+    --ink: #16302c; --ink-dim: #3f615c; --ink-faint: #6f8f8a;
+    --line: rgba(22, 48, 44, 0.14); --accent: #ff6b35;
+    --birdie: #2e9d5c; --bogey: #c97a1f; --double: #c94444;
     --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
   }
   * { box-sizing: border-box; }
@@ -117,6 +117,13 @@ function render() {
     ${token && !state.myRegistration && state.event.status === 'registration_open'
       ? `<div class="card" style="margin-top:16px;">Sa pole veel registreerunud. <a href="/dashboard" class="btn full">Registreeru dashboardil</a></div>` : ''}
 
+    ${token && state.myRegistration && !['live','finished','archived'].includes(state.event.status)
+      ? `<div class="card" style="margin-top:16px;">
+          <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Sa oled registreerunud (${state.myRegistration.status === 'confirmed' ? 'kinnitatud' : 'registreeritud'}).</div>
+          <button class="btn secondary full" id="withdrawBtn">Loobu võistlusest</button>
+          <div class="error-msg" id="withdrawError"></div>
+        </div>` : ''}
+
     <h2>Registreerunud mängijad (${state.registrations.length})</h2>
     <div class="card">
       ${state.registrations.length === 0 ? '<div class="empty-note">Registreerumisi pole veel.</div>' : divisionsHtml}
@@ -145,6 +152,33 @@ function render() {
   });
   document.querySelectorAll('[data-join]').forEach((btn) => btn.onclick = () => joinPool(btn.dataset.join, btn.dataset.round));
   document.querySelectorAll('[data-leave]').forEach((btn) => btn.onclick = () => leavePool(btn.dataset.leave, btn.dataset.round));
+  const withdrawBtn = document.getElementById('withdrawBtn');
+  if (withdrawBtn) withdrawBtn.onclick = withdrawFromEvent;
+}
+
+async function withdrawFromEvent() {
+  const ok = confirm(`Kindel, et soovid loobuda võistlusest "${state.event.name}"?\n\nSinu registreerimine ja pooli-valik selle võistluse jaoks kustutatakse.`);
+  if (!ok) return;
+  const btn = document.getElementById('withdrawBtn');
+  btn.disabled = true;
+  btn.textContent = 'Loobun...';
+  try {
+    const res = await fetch(`/api/registrations/${state.myRegistration.id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('withdrawError').textContent = data.error;
+      btn.disabled = false;
+      btn.textContent = 'Loobu võistlusest';
+      return;
+    }
+    window.location.href = '/dashboard';
+  } catch (e) {
+    document.getElementById('withdrawError').textContent = 'Ühendus ebaõnnestus.';
+    btn.disabled = false;
+    btn.textContent = 'Loobu võistlusest';
+  }
 }
 
 function renderRoundPools(round) {
