@@ -658,13 +658,17 @@ function renderHole() {
     <div class="progress-dots">${dots}</div>
     ${body}
     <div class="nav-row">
-      <div class="nav-btn-group">
-        <button class="nav-btn" id="backBtn">← Tagasi</button>
-        <button class="nav-btn" id="prevHoleBtn" ${state.holeIdx === 0 ? 'disabled' : ''}>◀ Eelmine rada</button>
-      </div>
       ${roundFinished
-        ? `<a class="nav-btn primary" style="display:flex;align-items:center;justify-content:center;text-decoration:none;" href="/leaderboard?round=${state.pool.round_id}">Vaata leaderboard'i</a>`
-        : `<button class="nav-btn primary" id="nextHoleBtn">Järgmine rada →</button>`}
+        ? `<div style="display:flex; flex-direction:column; gap:10px; width:100%; flex:1;">
+             <button class="nav-btn" id="backBtn">← Tagasi</button>
+             <a class="nav-btn primary" style="display:flex;align-items:center;justify-content:center;text-decoration:none;" href="/leaderboard?round=${state.pool.round_id}">Vaata tulemusi</a>
+             <a class="nav-btn" style="display:flex;align-items:center;justify-content:center;text-decoration:none;" href="/dashboard">Pealeht</a>
+           </div>`
+        : `<div class="nav-btn-group">
+             <button class="nav-btn" id="backBtn">← Tagasi</button>
+             <button class="nav-btn" id="prevHoleBtn" ${state.holeIdx === 0 ? 'disabled' : ''}>◀ Eelmine rada</button>
+           </div>
+           <button class="nav-btn primary" id="nextHoleBtn">Järgmine rada →</button>`}
     </div>
     <div class="sync-note" id="syncNote">✓ Kõik salvestatud serverisse</div>
   `;
