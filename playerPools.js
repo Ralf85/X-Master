@@ -47,6 +47,10 @@ router.post('/:poolId/join', asyncHandler(async (req, res) => {
         const { rows: poolRows } = await client.query('SELECT * FROM pools WHERE id = $1 FOR UPDATE', [req.params.poolId]);
         const poolInfo = poolRows[0];
         if (!poolInfo) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pooli ei leitud.' }); }
+        if (poolInfo.locked) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'See pool on korraldaja poolt lukustatud - vali mõni teine pool.' });
+        }
 
         // Leia mängija registreering selle ringi event'i jaoks
         const { rows: regRows } = await client.query(

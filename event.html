@@ -225,13 +225,13 @@ function renderRoundPools(round) {
         ${poolData.pools.map((p) => `
           <div class="pool-box ${p.id === myPoolId ? 'mine' : ''}">
             <div class="pool-head">
-              <span class="pool-title">Pool ${p.pool_number}</span>
+              <span class="pool-title">Pool ${p.pool_number}${p.locked ? ' 🔒' : ''}</span>
               <span class="pool-count">${p.players.length}${p.max_players ? '/' + p.max_players : ''} mängijat</span>
             </div>
             <div class="pool-members">${p.players.map((pl) => pl.first_name + ' ' + pl.last_name).join(', ') || 'Tühi'}</div>
             ${!isRegistered ? '' : p.id === myPoolId
               ? `<button class="btn secondary full" data-leave="${p.id}" data-round="${round.id}">Lahku sellest poolist</button>`
-              : (myPoolId ? '' : (p.isFull ? `<div class="empty-note" style="margin-top:8px;">Täis</div>` : `<button class="btn full" data-join="${p.id}" data-round="${round.id}">Liitu selle pooliga</button>`))
+              : (myPoolId ? '' : (p.locked ? `<div class="empty-note" style="margin-top:8px;">🔒 Lukustatud</div>` : (p.isFull ? `<div class="empty-note" style="margin-top:8px;">Täis</div>` : `<button class="btn full" data-join="${p.id}" data-round="${round.id}">Liitu selle pooliga</button>`)))
             }
           </div>`).join('')}
       </div>

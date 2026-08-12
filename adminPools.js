@@ -79,7 +79,7 @@ router.delete('/players/:poolPlayerId', asyncHandler(async (req, res) => {
 // Pooli number, start hole, staatus, max mängijaid, topeltmärkimine
 // ---------------------------------------------------------------------------
 router.patch('/:poolId', asyncHandler(async (req, res) => {
-    const { poolNumber, status, requireDoubleVerification, startTime, startHole, maxPlayers } = req.body;
+    const { poolNumber, status, requireDoubleVerification, startTime, startHole, maxPlayers, locked } = req.body;
     const { rows } = await pool.query(
         `UPDATE pools SET
             pool_number = COALESCE($1, pool_number),
@@ -87,9 +87,10 @@ router.patch('/:poolId', asyncHandler(async (req, res) => {
             require_double_verification = COALESCE($3, require_double_verification),
             start_time = COALESCE($4, start_time),
             start_hole = COALESCE($5, start_hole),
-            max_players = COALESCE($6, max_players)
-         WHERE id = $7 RETURNING *`,
-        [poolNumber, status, requireDoubleVerification, startTime, startHole, maxPlayers, req.params.poolId]
+            max_players = COALESCE($6, max_players),
+            locked = COALESCE($7, locked)
+         WHERE id = $8 RETURNING *`,
+        [poolNumber, status, requireDoubleVerification, startTime, startHole, maxPlayers, locked, req.params.poolId]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Pooli ei leitud.' });
     res.json({ pool: rows[0] });
