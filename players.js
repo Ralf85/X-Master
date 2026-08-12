@@ -96,13 +96,17 @@ router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
 // Punkt 7: kui email/telefon olemas, saadetakse taastekood
 // ---------------------------------------------------------------------------
 router.post('/forgot-pin', recoveryLimiter, asyncHandler(async (req, res) => {
-    const { playerNumber } = req.body;
-    const { rows } = await pool.query('SELECT * FROM players WHERE player_number = $1', [playerNumber]);
+    const identifier = String(req.body.identifier || req.body.playerNumber || req.body.email || '').trim();
+    const genericResponse = { message: 'Kui konto eksisteerib ja sellel on email, saadeti taastekood emailile.' };
+    if (!identifier) return res.json(genericResponse);
+
+    const isEmail = identifier.includes('@');
+    const { rows } = isEmail
+        ? await pool.query('SELECT * FROM players WHERE LOWER(email) = LOWER($1)', [identifier])
+        : await pool.query('SELECT * FROM players WHERE player_number = $1', [identifier]);
     const player = rows[0];
 
-    // Ei paljasta, kas Player ID eksisteerib, vastuse tekst on alati sama
-    const genericResponse = { message: 'Kui konto eksisteerib ja sellel on email, saadeti taastekood emailile.' };
-
+    // Ei paljasta, kas konto eksisteerib - vastuse tekst on alati sama
     if (!player || !player.email) {
         return res.json(genericResponse);
     }
@@ -120,17 +124,21 @@ router.post('/forgot-pin', recoveryLimiter, asyncHandler(async (req, res) => {
 // POST /api/players/reset-pin
 // ---------------------------------------------------------------------------
 router.post('/reset-pin', recoveryLimiter, asyncHandler(async (req, res) => {
-    const { playerNumber, recoveryCode, newPin, newPinConfirm } = req.body;
+    const identifier = String(req.body.identifier || req.body.playerNumber || '').trim();
+    const { recoveryCode, newPin, newPinConfirm } = req.body;
 
     if (!isValidPinFormat(newPin) || newPin !== newPinConfirm) {
         return res.status(400).json({ error: 'Uus PIN peab olema 4-6 numbrit ja kattuma kinnitusega.' });
     }
 
-    const { rows } = await pool.query('SELECT * FROM players WHERE player_number = $1', [playerNumber]);
+    const isEmail = identifier.includes('@');
+    const { rows } = isEmail
+        ? await pool.query('SELECT * FROM players WHERE LOWER(email) = LOWER($1)', [identifier])
+        : await pool.query('SELECT * FROM players WHERE player_number = $1', [identifier]);
     const player = rows[0];
 
     if (!player || !(await comparePin(recoveryCode, player.recovery_code_hash))) {
-        return res.status(401).json({ error: 'Vale Player ID või taastekood.' });
+        return res.status(401).json({ error: 'Vale Player ID/email või taastekood.' });
     }
 
     const newPinHash = await hashPin(newPin);

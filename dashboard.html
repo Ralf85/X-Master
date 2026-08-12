@@ -187,9 +187,9 @@ function renderForgotPin() {
   app.innerHTML = `
     <div class="card">
       <h1>Unustasin PIN-i</h1>
-      <p class="sub">Sisesta oma Player ID - saadame taastekoodi sinu emailile.</p>
-      <label>Player ID</label>
-      <input id="forgotPlayerId" type="text" inputmode="numeric" placeholder="nt 18472">
+      <p class="sub">Sisesta oma Player ID või email - saadame taastekoodi sinu emailile.</p>
+      <label>Player ID või email</label>
+      <input id="forgotIdentifier" type="text" inputmode="email" placeholder="nt 18472 või sina@email.ee">
       <button class="btn full" id="sendForgotBtn" style="margin-top:14px;">Saada taastekood</button>
       <div class="ok-msg" id="forgotStatus" style="color:var(--birdie); font-size:13px; margin-top:10px;"></div>
       <div class="error-msg" id="forgotError"></div>
@@ -197,31 +197,31 @@ function renderForgotPin() {
     </div>`;
   document.getElementById('backToLoginLink').onclick = () => renderAuth('login');
   document.getElementById('sendForgotBtn').onclick = async () => {
-    const playerNumber = document.getElementById('forgotPlayerId').value.trim();
+    const identifier = document.getElementById('forgotIdentifier').value.trim();
     const statusEl = document.getElementById('forgotStatus');
     const errEl = document.getElementById('forgotError');
     errEl.textContent = ''; statusEl.textContent = '';
-    if (!playerNumber) { errEl.textContent = 'Player ID on kohustuslik.'; return; }
+    if (!identifier) { errEl.textContent = 'Player ID või email on kohustuslik.'; return; }
     try {
       const res = await fetch('/api/players/forgot-pin', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerNumber }),
+        body: JSON.stringify({ identifier }),
       });
       const data = await res.json();
       if (!res.ok) { errEl.textContent = data.error; return; }
       statusEl.textContent = data.message;
-      setTimeout(() => renderResetPin(playerNumber), 1500);
+      setTimeout(() => renderResetPin(identifier), 1500);
     } catch (e) { errEl.textContent = 'Ühendus ebaõnnestus.'; }
   };
 }
 
-function renderResetPin(playerNumber) {
+function renderResetPin(identifier) {
   app.innerHTML = `
     <div class="card">
       <h1>Sisesta taastekood</h1>
       <p class="sub">Kontrolli oma emaili (ka rämpsposti kausta) ja sisesta saadud kood.</p>
-      <label>Player ID</label>
-      <input id="resetPlayerId" value="${playerNumber || ''}">
+      <label>Player ID või email</label>
+      <input id="resetIdentifier" value="${esc(identifier || '')}">
       <label>Taastekood</label>
       <input id="resetCode" inputmode="numeric" placeholder="8-kohaline kood">
       <label>Uus PIN (4-6 numbrit)</label>
@@ -235,7 +235,7 @@ function renderResetPin(playerNumber) {
   document.getElementById('backToLoginLink2').onclick = () => renderAuth('login');
   document.getElementById('doResetBtn').onclick = async () => {
     const body = {
-      playerNumber: document.getElementById('resetPlayerId').value.trim(),
+      identifier: document.getElementById('resetIdentifier').value.trim(),
       recoveryCode: document.getElementById('resetCode').value.trim(),
       newPin: document.getElementById('resetNewPin').value,
       newPinConfirm: document.getElementById('resetNewPinConfirm').value,
