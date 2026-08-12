@@ -62,4 +62,37 @@ async function sendRecoveryEmail({ to, playerNumber, recoveryCode }) {
     }
 }
 
-module.exports = { sendRecoveryEmail };
+async function sendPaymentReminderEmail({ to, playerName, eventName, paymentLink }) {
+    const client = getResendClient();
+    if (!client) {
+        console.log(`[PAYMENT REMINDER] (RESEND_API_KEY puudub, email ei saadetud) ${to} - ${eventName}`);
+        return { sent: false };
+    }
+
+    const from = process.env.EMAIL_FROM || 'X-Master <onboarding@resend.dev>';
+
+    try {
+        await client.emails.send({
+            from,
+            to,
+            subject: `Meeldetuletus: makse ootel - ${eventName}`,
+            html: `
+                <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+                    <h2 style="color: #16302c;">Meeldetuletus makse kohta</h2>
+                    <p>Tere${playerName ? ', ' + playerName : ''}!</p>
+                    <p>Sinu registreerimine võistlusele <strong>${eventName}</strong> ootab veel osalustasu tasumist.</p>
+                    ${paymentLink ? `<p><a href="${paymentLink}" style="display:inline-block; background:#ff6b35; color:#1a0e08; font-weight:700; padding:12px 20px; border-radius:8px; text-decoration:none; margin-top:10px;">Maksa siin</a></p>` : ''}
+                    <p style="color: #6f8f8a; font-size: 13px; margin-top: 20px;">
+                        Kui oled juba maksnud, võid selle kirja ignoreerida - korraldaja kinnitab makse peagi.
+                    </p>
+                </div>
+            `,
+        });
+        return { sent: true };
+    } catch (err) {
+        console.error('[PAYMENT REMINDER] Emaili saatmine ebaõnnestus:', err.message);
+        return { sent: false };
+    }
+}
+
+module.exports = { sendRecoveryEmail, sendPaymentReminderEmail };

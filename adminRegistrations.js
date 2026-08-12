@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('./db');
 const { adminAuth } = require('./adminAuth');
 const { asyncHandler } = require('./errorHandler');
+const { sendPaymentReminderEmail } = require('./email');
 
 const router = express.Router();
 router.use(adminAuth);
@@ -14,7 +15,7 @@ router.get('/event/:eventId', asyncHandler(async (req, res) => {
     const { status } = req.query;
     const params = [req.params.eventId];
     let query = `
-        SELECT r.id, r.status, r.registered_at, r.confirmed_at, r.paid_at,
+        SELECT r.id, r.status, r.registered_at, r.confirmed_at, r.bank_paid_at, r.stebby_paid_at,
                p.id AS player_id, p.player_number, p.first_name, p.last_name, p.email, p.phone,
                d.name AS division_name
         FROM registrations r
@@ -33,18 +34,60 @@ router.get('/event/:eventId', asyncHandler(async (req, res) => {
 }));
 
 // ---------------------------------------------------------------------------
-// PATCH /api/admin/registrations/:id/paid
-// Tasu märkimine/tühistamine - eraldi väli registreerimise staatusest.
-// Mängija dashboard näitab "Kinnitatud" ainult siis, kui paid_at on täidetud.
+// PATCH /api/admin/registrations/:id/payment
+// Tasu märkimine/tühistamine kindla kanali (bank/stebby) kaupa.
+// Kanalid on teineteist välistavad: kui üks märgitakse makstuks, siis
+// teine kanal tühistatakse automaatselt (üks makse tuleb ainult ühest
+// kohast - nii on hiljem selge, kust raha reaalselt tuli).
 // ---------------------------------------------------------------------------
-router.patch('/:id/paid', asyncHandler(async (req, res) => {
-    const { paid } = req.body;
+router.patch('/:id/payment', asyncHandler(async (req, res) => {
+    const { channel, paid } = req.body;
+    if (!['bank', 'stebby'].includes(channel)) {
+        return res.status(400).json({ error: 'channel peab olema bank või stebby.' });
+    }
+    const column = channel === 'bank' ? 'bank_paid_at' : 'stebby_paid_at';
+    const otherColumn = channel === 'bank' ? 'stebby_paid_at' : 'bank_paid_at';
+
     const { rows } = await pool.query(
-        `UPDATE registrations SET paid_at = ${paid ? 'now()' : 'NULL'} WHERE id = $1 RETURNING *`,
+        `UPDATE registrations SET
+            ${column} = ${paid ? 'now()' : 'NULL'}
+            ${paid ? `, ${otherColumn} = NULL` : ''}
+         WHERE id = $1 RETURNING *`,
         [req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Registreerimist ei leitud.' });
     res.json({ registration: rows[0] });
+}));
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/registrations/bulk-email
+// Saadab makse-meeldetuletuse valitud registreerimiste mängijatele.
+// ---------------------------------------------------------------------------
+router.post('/bulk-email', asyncHandler(async (req, res) => {
+    const { registrationIds } = req.body;
+    if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+        return res.status(400).json({ error: 'registrationIds on kohustuslik ja peab olema mittetühi massiiv.' });
+    }
+
+    const { rows } = await pool.query(
+        `SELECT r.id, p.email, p.first_name, e.name AS event_name, e.payment_link
+         FROM registrations r
+         JOIN players p ON p.id = r.player_id
+         JOIN events e ON e.id = r.event_id
+         WHERE r.id = ANY($1::int[])`,
+        [registrationIds]
+    );
+
+    let sent = 0, skipped = 0;
+    for (const r of rows) {
+        if (!r.email) { skipped++; continue; }
+        const result = await sendPaymentReminderEmail({
+            to: r.email, playerName: r.first_name, eventName: r.event_name, paymentLink: r.payment_link,
+        });
+        if (result.sent) sent++; else skipped++;
+    }
+
+    res.json({ sent, skipped, total: rows.length });
 }));
 
 // ---------------------------------------------------------------------------

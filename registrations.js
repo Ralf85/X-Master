@@ -68,7 +68,8 @@ router.post('/:eventId', asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 router.get('/', asyncHandler(async (req, res) => {
     const { rows } = await pool.query(
-        `SELECT r.id, r.status, r.registered_at, r.confirmed_at, r.completed_at, r.paid_at,
+        `SELECT r.id, r.status, r.registered_at, r.confirmed_at, r.completed_at,
+                COALESCE(r.bank_paid_at, r.stebby_paid_at) AS paid_at,
                 e.id AS event_id, e.name AS event_name, e.slug, e.start_date, e.end_date, e.status AS event_status,
                 e.payment_link,
                 d.name AS division_name

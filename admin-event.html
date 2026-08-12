@@ -133,6 +133,8 @@ let state = {
   registrations: [], holes: [], pools: [], conflicts: [],
 };
 let resetPinMessage = null;
+let selectedRegIds = new Set();
+let regSortMode = 'registered_at';
 
 document.getElementById('movePlayerClose').onclick = () => document.getElementById('movePlayerModal').classList.remove('show');
 document.getElementById('movePlayerModal').onclick = (e) => { if (e.target.id === 'movePlayerModal') e.currentTarget.classList.remove('show'); };
@@ -419,29 +421,56 @@ async function renderRegistrations(el) {
   const data = await api(`/api/admin/registrations/event/${eventId}`);
   state.registrations = data.registrations;
 
+  const sorted = [...state.registrations].sort((a, b) => {
+    if (regSortMode === 'name') {
+      return (a.first_name + a.last_name).localeCompare(b.first_name + b.last_name, 'et');
+    }
+    return new Date(a.registered_at) - new Date(b.registered_at);
+  });
+
+  function paymentCell(r, channel) {
+    const mine = channel === 'bank' ? r.bank_paid_at : r.stebby_paid_at;
+    const other = channel === 'bank' ? r.stebby_paid_at : r.bank_paid_at;
+    if (mine) {
+      return `<span data-toggle-payment="${r.id}" data-channel="${channel}" data-paid="true" class="status-pill confirmed" style="cursor:pointer;">Makstud</span>`;
+    }
+    if (other) {
+      return `<span data-toggle-payment="${r.id}" data-channel="${channel}" data-paid="false" class="status-pill" style="cursor:pointer; background:rgba(120,120,120,0.15); color:var(--ink-faint);">—</span>`;
+    }
+    return `<span data-toggle-payment="${r.id}" data-channel="${channel}" data-paid="false" class="status-pill registered" style="cursor:pointer;">Maksmata</span>`;
+  }
+
   el.innerHTML = `
     <div class="card">
-      <h3>Registreerumised (${state.registrations.length})</h3>
-      ${resetPinMessage ? `<div style="background:rgba(79,191,130,0.1); border:1px solid var(--birdie); padding:12px; border-radius:8px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h3 style="margin:0;">Registreerumised (${state.registrations.length})</h3>
+        <select id="regSortSelect" style="width:auto;">
+          <option value="registered_at" ${regSortMode==='registered_at'?'selected':''}>Registreerimise aeg</option>
+          <option value="name" ${regSortMode==='name'?'selected':''}>Nimi (A-Z)</option>
+        </select>
+      </div>
+      ${resetPinMessage ? `<div style="background:rgba(79,191,130,0.1); border:1px solid var(--birdie); padding:12px; border-radius:8px; margin:14px 0; display:flex; justify-content:space-between; align-items:center;">
         <span style="color:var(--birdie); font-family:var(--font-display); font-weight:600; font-size:13px;">${resetPinMessage}</span>
         <span id="dismissPinMsg" style="cursor:pointer; color:var(--ink-faint); margin-left:10px;">✕</span>
       </div>` : ''}
       ${state.registrations.length === 0 ? '<div class="empty-note">Registreerumisi pole veel.</div>' : `
+      <div style="display:flex; align-items:center; gap:10px; margin:12px 0;">
+        <button class="btn small secondary" id="bulkEmailBtn">📧 Saada meeldetuletus valitutele (${selectedRegIds.size})</button>
+        <span id="selectUnpaidLink" style="cursor:pointer; color:var(--ink-faint); font-size:12px; text-decoration:underline;">vali kõik maksmata</span>
+      </div>
       <table>
-        <tr><th>Mängija</th><th>Divisjon</th><th>Staatus</th><th>Tasu</th><th></th></tr>
-        ${state.registrations.map((r) => `
+        <tr><th><input type="checkbox" id="selectAllCheckbox"></th><th>Mängija</th><th>Divisjon</th><th>Staatus</th><th>Pank</th><th>Stebby</th><th></th></tr>
+        ${sorted.map((r) => `
           <tr>
+            <td><input type="checkbox" class="regCheckbox" data-reg-id="${r.id}" ${selectedRegIds.has(r.id) ? 'checked' : ''}></td>
             <td>${esc(r.first_name)} ${esc(r.last_name)}<br><span style="color:var(--ink-faint);font-size:11px;">#${r.player_number}</span></td>
             <td>${r.division_name}</td>
             <td><span class="status-pill ${r.status}">${r.status === 'confirmed' ? 'Kinnitatud' : r.status === 'registered' ? 'Registreeritud' : r.status}</span></td>
-            <td>
-              <span class="status-pill ${r.paid_at ? 'confirmed' : 'registered'}">${r.paid_at ? 'Makstud' : 'Maksmata'}</span>
-              <span data-toggle-paid="${r.id}" data-paid="${r.paid_at ? 'true' : 'false'}" style="cursor:pointer; color:${r.paid_at ? 'var(--double)' : 'var(--birdie)'}; font-size:11px; margin-left:6px; text-decoration:underline; white-space:nowrap;">${r.paid_at ? 'tühista' : 'märgi makstuks'}</span>
-            </td>
+            <td>${paymentCell(r, 'bank')}</td>
+            <td>${paymentCell(r, 'stebby')}</td>
             <td style="white-space:nowrap;">
               ${r.status !== 'confirmed' ? `<button class="btn small" data-confirm="${r.id}">Kinnita</button>` : ''}
-              <button class="btn small secondary" data-reset-pin="${r.player_id}" data-player-name="${esc(r.first_name)} ${esc(r.last_name)}" style="margin-left:4px;">Lähtesta PIN</button>
-              <span data-remove-reg="${r.id}" data-reg-name="${esc(r.first_name)} ${esc(r.last_name)}" style="cursor:pointer; color:var(--double); font-size:11px; margin-left:8px; white-space:nowrap;">Eemalda</span>
+              <span data-remove-reg="${r.id}" data-reg-name="${esc(r.first_name)} ${esc(r.last_name)}" style="cursor:pointer; color:var(--double); font-size:11px; margin-left:8px; white-space:nowrap;">Kustuta mängija</span>
             </td>
           </tr>`).join('')}
       </table>`}
@@ -462,23 +491,58 @@ async function renderRegistrations(el) {
       <div class="error-msg" id="apError"></div>
     </div>
   `;
+  document.getElementById('regSortSelect').onchange = (e) => { regSortMode = e.target.value; renderTab(); };
   document.querySelectorAll('[data-confirm]').forEach((btn) => {
     btn.onclick = async () => { await api(`/api/admin/registrations/${btn.dataset.confirm}`, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) }); renderTab(); };
   });
-  document.querySelectorAll('[data-toggle-paid]').forEach((el) => {
+  document.querySelectorAll('[data-toggle-payment]').forEach((el) => {
     el.onclick = async () => {
       const nowPaid = el.dataset.paid !== 'true';
-      await api(`/api/admin/registrations/${el.dataset.togglePaid}/paid`, { method: 'PATCH', body: JSON.stringify({ paid: nowPaid }) });
+      await api(`/api/admin/registrations/${el.dataset.togglePayment}/payment`, {
+        method: 'PATCH', body: JSON.stringify({ channel: el.dataset.channel, paid: nowPaid }),
+      });
       renderTab();
     };
   });
-  document.querySelectorAll('[data-reset-pin]').forEach((btn) => {
-    btn.onclick = async () => {
-      const result = await api(`/api/admin/players/${btn.dataset.resetPin}/reset-pin`, { method: 'POST' });
-      resetPinMessage = `Uus PIN mängijale ${btn.dataset.playerName}: ${result.newPin} — ütle see talle kohe, teine kord seda enam ei näe.`;
+  const selectAllCb = document.getElementById('selectAllCheckbox');
+  if (selectAllCb) {
+    selectAllCb.onchange = () => {
+      if (selectAllCb.checked) sorted.forEach((r) => selectedRegIds.add(r.id));
+      else selectedRegIds.clear();
+      renderTab();
+    };
+  }
+  document.querySelectorAll('.regCheckbox').forEach((cb) => {
+    cb.onchange = () => {
+      const id = Number(cb.dataset.regId);
+      if (cb.checked) selectedRegIds.add(id); else selectedRegIds.delete(id);
       renderTab();
     };
   });
+  const selectUnpaidLink = document.getElementById('selectUnpaidLink');
+  if (selectUnpaidLink) {
+    selectUnpaidLink.onclick = () => {
+      selectedRegIds.clear();
+      state.registrations.filter((r) => !r.bank_paid_at && !r.stebby_paid_at).forEach((r) => selectedRegIds.add(r.id));
+      renderTab();
+    };
+  }
+  const bulkEmailBtn = document.getElementById('bulkEmailBtn');
+  if (bulkEmailBtn) {
+    bulkEmailBtn.onclick = async () => {
+      if (selectedRegIds.size === 0) { alert('Vali vähemalt üks mängija.'); return; }
+      const ok = confirm(`Saata makse-meeldetuletus emailiga ${selectedRegIds.size} mängijale?`);
+      if (!ok) return;
+      try {
+        const result = await api('/api/admin/registrations/bulk-email', {
+          method: 'POST', body: JSON.stringify({ registrationIds: [...selectedRegIds] }),
+        });
+        alert(`Saadetud: ${result.sent}, vahele jäetud (email puudub v6i viga): ${result.skipped}`);
+        selectedRegIds.clear();
+        renderTab();
+      } catch (e) { alert('Viga: ' + e.message); }
+    };
+  }
   const dismissBtn = document.getElementById('dismissPinMsg');
   if (dismissBtn) dismissBtn.onclick = () => { resetPinMessage = null; renderTab(); };
   document.querySelectorAll('[data-remove-reg]').forEach((el) => {
