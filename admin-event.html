@@ -205,6 +205,11 @@ async function renderOverview(el) {
     const annData = await api(`/api/admin/announcements/${eventId}`);
     announcements = annData.announcements;
   } catch (e) { /* pole hullu, näita lihtsalt tühja ajalugu */ }
+  let jokes = [];
+  try {
+    const jokeData = await api(`/api/admin/jokes?eventId=${eventId}`);
+    jokes = jokeData.jokes;
+  } catch (e) { /* pole hullu, näita lihtsalt tühja nimekirja */ }
 
   el.innerHTML = `
     <div class="card">
@@ -244,6 +249,38 @@ async function renderOverview(el) {
         <button class="btn" id="addPark">Lisa park</button>
       </div>
     </div>
+
+    <div class="card">
+      <h3>😄 Anekdoodi-mallid</h3>
+      <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-6px;">
+        Kuvatakse mängijatele raja lõpus, ainult SELLE võistluse siseselt. Kasuta {P1}, {P2}, {P3}, {P4}...
+        kohatäitjaid - need asendatakse automaatselt selle pooli päris mängijate eesnimedega.<br>
+        Näide: "{P1}, {P2}, {P3} ja {P4} läksid baari..."<br>
+        Kui poolis on vähem mängijaid kui mall vajab, täidetakse ülejäänud kohad naljaka täitenimega.<br>
+        <strong>Üldine anekdoot</strong> (rada number tühi): näidatakse ainult ÜKS KORD, seejärel ei tule enam - "↺ Taasta" nupuga saab uuesti aktiivseks teha.<br>
+        <strong>Rada number:</strong> kui määrad, kuvatakse see anekdoot GARANTEERITULT sellel rajal (ei kulu ära).
+      </p>
+      <textarea id="newJokeText" placeholder="{P1}, {P2}, {P3} ja {P4} läksid baari..." style="width:100%; min-height:70px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:10px 12px; font-family:var(--font-body); font-size:14px; resize:vertical;"></textarea>
+      <label style="font-size:12px; color:var(--ink-faint); margin-top:8px; display:block;">Rada number (valikuline)</label>
+      <input id="newJokeHole" type="number" min="1" placeholder="Tühjaks jätmisel läheb üldisesse juhuslikku valikusse" style="margin-top:4px;">
+      <button class="btn full" id="addJokeBtn" style="margin-top:8px;">Lisa anekdoot</button>
+      <div class="error-msg" id="jokeError"></div>
+      <div id="jokesList" style="margin-top:16px;">
+        ${jokes.length === 0 ? '<div class="empty-note">Ühtegi anekdooti pole veel lisatud.</div>' : jokes.map((j) => `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);">
+            <div>
+              ${j.hole_number ? `<span style="display:inline-block; background:var(--accent); color:#1a0e08; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; margin-bottom:4px;">RADA ${j.hole_number}</span>` : ''}
+              ${!j.hole_number && j.used_at ? `<span style="display:inline-block; background:var(--ink-faint); color:var(--bg-deep); font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; margin-bottom:4px;">✓ NÄIDATUD</span>` : ''}
+              ${!j.hole_number && !j.used_at ? `<span style="display:inline-block; background:var(--birdie); color:var(--bg-deep); font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; margin-bottom:4px;">OOTEL</span>` : ''}
+              <br><span style="font-size:13px; color:var(--ink-dim);">${j.template_text}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0;">
+              <span data-del-joke="${j.id}" style="cursor:pointer; color:var(--double);">✕</span>
+              ${!j.hole_number && j.used_at ? `<span data-reset-joke="${j.id}" style="cursor:pointer; color:var(--accent); font-size:11px; white-space:nowrap;">↺ Taasta</span>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
   `;
   document.getElementById('sendAnnounceBtn').onclick = async () => {
     const text = document.getElementById('announceText').value.trim();
@@ -280,6 +317,26 @@ async function renderOverview(el) {
   };
   document.querySelectorAll('[data-del-div]').forEach((x) => x.onclick = async () => { await api(`/api/admin/events/divisions/${x.dataset.delDiv}`, { method: 'DELETE' }); loadEvent(); });
   document.querySelectorAll('[data-del-park]').forEach((x) => x.onclick = async () => { await api(`/api/admin/events/parks/${x.dataset.delPark}`, { method: 'DELETE' }); loadEvent(); });
+  document.getElementById('addJokeBtn').onclick = async () => {
+    const text = document.getElementById('newJokeText').value.trim();
+    const holeNumber = document.getElementById('newJokeHole').value;
+    const errEl = document.getElementById('jokeError');
+    errEl.textContent = '';
+    if (!text) return;
+    try {
+      await api(`/api/admin/jokes`, {
+        method: 'POST',
+        body: JSON.stringify({ eventId, templateText: text, holeNumber: holeNumber ? Number(holeNumber) : null }),
+      });
+      renderTab();
+    } catch (e) { errEl.textContent = 'Viga: ' + e.message; }
+  };
+  document.querySelectorAll('[data-del-joke]').forEach((el) => {
+    el.onclick = async () => { await api(`/api/admin/jokes/${el.dataset.delJoke}`, { method: 'DELETE' }); renderTab(); };
+  });
+  document.querySelectorAll('[data-reset-joke]').forEach((el) => {
+    el.onclick = async () => { await api(`/api/admin/jokes/${el.dataset.resetJoke}/reset`, { method: 'POST' }); renderTab(); };
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -116,45 +116,6 @@ function slugify(s) {
     .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-async function loadJokesList() {
-  const listEl = document.getElementById('jokesList');
-  listEl.innerHTML = 'Laen...';
-  try {
-    const res = await fetch('/api/admin/jokes', { headers: { Authorization: `Bearer ${state.token}` } });
-    const data = await res.json();
-    if (!res.ok) { listEl.innerHTML = `<div class="error-msg">Viga: ${data.error || 'tundmatu viga'}</div>`; return; }
-    listEl.innerHTML = data.jokes.length === 0
-      ? '<div class="empty-note">Ühtegi anekdooti pole veel lisatud.</div>'
-      : data.jokes.map((j) => `
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);">
-            <div>
-              ${j.hole_number ? `<span style="display:inline-block; background:var(--accent); color:#1a0e08; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; margin-bottom:4px;">RADA ${j.hole_number}</span>` : ''}
-              ${!j.hole_number && j.used_at ? `<span style="display:inline-block; background:var(--ink-faint); color:var(--bg-deep); font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; margin-bottom:4px;">✓ NÄIDATUD</span>` : ''}
-              ${!j.hole_number && !j.used_at ? `<span style="display:inline-block; background:var(--birdie); color:var(--bg-deep); font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; margin-bottom:4px;">OOTEL</span>` : ''}
-              <br><span style="font-size:13px; color:var(--ink-dim);">${j.template_text}</span>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0;">
-              <span data-del-joke="${j.id}" style="cursor:pointer; color:var(--double);">✕</span>
-              ${!j.hole_number && j.used_at ? `<span data-reset-joke="${j.id}" style="cursor:pointer; color:var(--accent); font-size:11px; white-space:nowrap;">↺ Taasta</span>` : ''}
-            </div>
-          </div>`).join('');
-    document.querySelectorAll('[data-reset-joke]').forEach((el) => {
-      el.onclick = async () => {
-        await fetch(`/api/admin/jokes/${el.dataset.resetJoke}/reset`, { method: 'POST', headers: { Authorization: `Bearer ${state.token}` } });
-        loadJokesList();
-      };
-    });
-    document.querySelectorAll('[data-del-joke]').forEach((el) => {
-      el.onclick = async () => {
-        await fetch(`/api/admin/jokes/${el.dataset.delJoke}`, { method: 'DELETE', headers: { Authorization: `Bearer ${state.token}` } });
-        loadJokesList();
-      };
-    });
-  } catch (e) {
-    listEl.innerHTML = `<div class="error-msg">Ühendus ebaõnnestus: ${e.message}</div>`;
-  }
-}
-
 async function loadEvents() {
   app.innerHTML = `<div class="card">Laen...</div>`;
   try {
@@ -173,32 +134,11 @@ function renderEvents() {
     <div class="nav-links" style="display:flex; align-items:center; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
       <a href="/admin" style="color:var(--accent); text-decoration:none; font-size:13px; font-family:var(--font-display); font-weight:600;">Võistlused</a>
       <a href="/admin-users" style="color:var(--ink-dim); text-decoration:none; font-size:13px; font-family:var(--font-display); font-weight:600;">Kasutajad</a>
-      <button id="toggleJokesBtn" class="btn small secondary" style="margin-left:auto;">😄 Anekdoodid</button>
-      <button id="toggleCreateBtn" class="btn small">+ Loo võistlus</button>
+      <button id="toggleCreateBtn" class="btn small" style="margin-left:auto;">+ Loo võistlus</button>
     </div>
 
     <div class="card">
       ${state.events.length === 0 ? '<div class="empty-note">Ühtegi võistlust pole veel loodud.</div>' : state.events.map(eventRow).join('')}
-    </div>
-
-    <div id="jokesSection" style="display:none;">
-      <h2>😄 Anekdoodi-mallid</h2>
-      <div class="card">
-        <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-4px;">
-          Kuvatakse mängijatele raja lõpus. Kasuta {P1}, {P2}, {P3}, {P4}... kohatäitjaid -
-          need asendatakse automaatselt selle pooli päris mängijate eesnimedega.<br>
-          Näide: "{P1}, {P2}, {P3} ja {P4} läksid baari..."<br>
-          Kui poolis on vähem mängijaid kui mall vajab, täidetakse ülejäänud kohad naljaka täitenimega.<br>
-          <strong>Üldine anekdoot</strong> (rada number tühi): näidatakse ainult ÜKS KORD kogu süsteemis, seejärel ei tule enam - saad selle allpool "↺ Taasta" nupuga uuesti aktiivseks teha.<br>
-          <strong>Rada number:</strong> kui määrad, kuvatakse see anekdoot GARANTEERITULT sellel rajal, iga kord kui keegi selle raja lõpetab (ei kulu ära).
-        </p>
-        <textarea id="newJokeText" placeholder="{P1}, {P2}, {P3} ja {P4} läksid baari..." style="width:100%; min-height:70px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:10px 12px; font-family:var(--font-body); font-size:14px; resize:vertical;"></textarea>
-        <label style="font-size:12px; color:var(--ink-faint); margin-top:8px; display:block;">Rada number (valikuline)</label>
-        <input id="newJokeHole" type="number" min="1" placeholder="Tühjaks jätmisel läheb üldisesse juhuslikku valikusse" style="margin-top:4px;">
-        <button class="btn full" id="addJokeBtn" style="margin-top:8px;">Lisa anekdoot</button>
-        <div class="error-msg" id="jokeError"></div>
-        <div id="jokesList" style="margin-top:16px;"></div>
-      </div>
     </div>
 
     <div id="createEventSection" style="display:none;">
@@ -219,29 +159,6 @@ function renderEvents() {
       </div>
     </div>
   `;
-  document.getElementById('toggleJokesBtn').onclick = async () => {
-    const section = document.getElementById('jokesSection');
-    const isHidden = section.style.display === 'none';
-    section.style.display = isHidden ? 'block' : 'none';
-    if (isHidden) await loadJokesList();
-  };
-  document.getElementById('addJokeBtn').onclick = async () => {
-    const text = document.getElementById('newJokeText').value.trim();
-    const holeNumber = document.getElementById('newJokeHole').value;
-    document.getElementById('jokeError').textContent = '';
-    if (!text) return;
-    try {
-      const res = await fetch('/api/admin/jokes', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-        body: JSON.stringify({ templateText: text, holeNumber: holeNumber ? Number(holeNumber) : null }),
-      });
-      const data = await res.json();
-      if (!res.ok) { document.getElementById('jokeError').textContent = 'Viga: ' + (data.error || 'tundmatu viga'); return; }
-      document.getElementById('newJokeText').value = '';
-      document.getElementById('newJokeHole').value = '';
-      await loadJokesList();
-    } catch (e) { document.getElementById('jokeError').textContent = 'Ühendus ebaõnnestus: ' + e.message; }
-  };
   document.getElementById('logoutBtn').onclick = logout;
   wireThemeSelector();
   document.getElementById('createBtn').onclick = createEvent;

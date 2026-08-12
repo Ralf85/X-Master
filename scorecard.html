@@ -671,7 +671,7 @@ async function loadJokeCorner() {
   if (!el) return;
   try {
     const hole = state.playOrder[state.holeIdx];
-    const res = await fetch(`${API}/api/jokes/random?holeNumber=${hole.hole_number}`);
+    const res = await fetch(`${API}/api/jokes/random?eventId=${state.pool.event_id}&holeNumber=${hole.hole_number}`);
     const data = await res.json();
     if (!data.joke) return;
     let text = data.joke.template_text;
