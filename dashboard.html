@@ -270,6 +270,29 @@ async function saveName() {
   }
 }
 
+async function saveGender() {
+  const birthDate = document.getElementById('editBirthDate').value;
+  const gender = document.getElementById('editGender').value;
+  document.getElementById('genderError').textContent = '';
+  document.getElementById('genderOk').textContent = '';
+  if (!birthDate) { document.getElementById('genderError').textContent = 'Sünniaeg on kohustuslik.'; return; }
+  if (!gender) { document.getElementById('genderError').textContent = 'Sugu on kohustuslik.'; return; }
+  try {
+    const res = await fetch('/api/players/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+      body: JSON.stringify({ birthDate, gender }),
+    });
+    const data = await res.json();
+    if (!res.ok) { document.getElementById('genderError').textContent = data.error; return; }
+    state.player = data.player;
+    document.getElementById('genderOk').textContent = '✓ Salvestatud';
+    renderDashboard();
+  } catch (e) {
+    document.getElementById('genderError').textContent = 'Ühendus ebaõnnestus.';
+  }
+}
+
 function logout() {
   localStorage.removeItem('dg_player_token');
   state = { token: null, player: null, registrations: [], events: [] };
@@ -364,6 +387,21 @@ function renderDashboard() {
         <div class="error-msg" id="nameError"></div>
         <div id="nameOk" style="color:var(--birdie); font-size:12px; margin-top:6px;"></div>
       </div>
+      <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
+        <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Sünniaeg ja sugu</div>
+        ${!state.player.gender || !state.player.birth_date ? `<div style="color:var(--bogey); font-size:12px; margin-bottom:8px;">⚠ Puudub - täida ära, muidu ei saa võistlustele registreeruda.</div>` : ''}
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <input id="editBirthDate" type="date" value="${state.player.birth_date ? String(state.player.birth_date).slice(0,10) : ''}">
+          <select id="editGender">
+            <option value="">Vali...</option>
+            <option value="M" ${state.player.gender === 'M' ? 'selected' : ''}>Mees</option>
+            <option value="N" ${state.player.gender === 'N' ? 'selected' : ''}>Naine</option>
+          </select>
+        </div>
+        <button class="btn small" id="saveGenderBtn" style="margin-top:10px;">Salvesta</button>
+        <div class="error-msg" id="genderError"></div>
+        <div id="genderOk" style="color:var(--birdie); font-size:12px; margin-top:6px;"></div>
+      </div>
     </div>
 
     <h2>Minu tulevased võistlused</h2>
@@ -392,6 +430,7 @@ function renderDashboard() {
   const removeBtn = document.getElementById('avatarRemoveBtn');
   if (removeBtn) removeBtn.onclick = removeAvatar;
   document.getElementById('saveNameBtn').onclick = saveName;
+  document.getElementById('saveGenderBtn').onclick = saveGender;
   document.getElementById('logoutBtn').onclick = logout;
   document.querySelectorAll('[data-register]').forEach((btn) => {
     btn.onclick = () => openRegisterModal(btn.dataset.register, btn.dataset.name);
