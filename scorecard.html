@@ -236,6 +236,7 @@
 </style>
 </head>
 <body>
+<button id="playerThemeToggle" aria-label="Vaheta teemat" style="position:fixed; bottom:14px; right:14px; z-index:100; width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--bg-panel); color:var(--ink); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.18);">🌙</button>
 <div class="wrap" id="app"></div>
 
 <div class="modal-backdrop" id="moreModal">
@@ -261,6 +262,27 @@
 </div>
 
 <script>
+// ---------------------------------------------------------------------------
+// Teema valik mängijatele: hele (RAL 6027, vaikimisi) või tume
+// ---------------------------------------------------------------------------
+const PLAYER_THEMES = {
+  light: { '--bg-deep': '#7EBAB5', '--bg-panel': '#ffffff', '--bg-panel-2': '#dceeec', '--ink': '#16302c', '--ink-dim': '#3f615c', '--ink-faint': '#6f8f8a', '--line': 'rgba(22, 48, 44, 0.14)', '--birdie': '#2e9d5c', '--bogey': '#c97a1f', '--double': '#c94444' },
+  dark: { '--bg-deep': '#0a1512', '--bg-panel': '#0f1e1a', '--bg-panel-2': '#142c25', '--ink': '#eaf2ee', '--ink-dim': '#7fa396', '--ink-faint': '#4d6a60', '--line': 'rgba(234, 242, 238, 0.09)', '--birdie': '#4fbf82', '--bogey': '#e8974a', '--double': '#d9534f' },
+};
+function applyPlayerTheme(name) {
+  const theme = PLAYER_THEMES[name] || PLAYER_THEMES.light;
+  Object.entries(theme).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+  localStorage.setItem('dg_player_theme', name);
+  const btn = document.getElementById('playerThemeToggle');
+  if (btn) btn.textContent = name === 'dark' ? '☀️' : '🌙';
+}
+function togglePlayerTheme() {
+  const current = localStorage.getItem('dg_player_theme') || 'light';
+  applyPlayerTheme(current === 'dark' ? 'light' : 'dark');
+}
+document.getElementById('playerThemeToggle').onclick = togglePlayerTheme;
+applyPlayerTheme(localStorage.getItem('dg_player_theme') || 'light');
+
 const API = '';
 const AVATAR_COLORS = ['#4fbf82', '#f2c94c', '#ff6b35', '#5b9bd5', '#c77dff', '#e8974a'];
 const FUN_AVATARS = ['🐶','🐱','🐰','🐻','🐼','🐨','🐷','🐸','🐵','🐧','🐦','🐝','🐢','🐬','🐙','🐴'];
