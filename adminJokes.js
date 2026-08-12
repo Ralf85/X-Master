@@ -16,16 +16,17 @@ router.get('/', asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/admin/jokes
-// body: { templateText } - kasuta {P1}, {P2}, {P3}, {P4}... kohatäitjaid
+// body: { templateText, holeNumber? } - kasuta {P1}, {P2}, {P3}, {P4}... kohatäitjaid
+// holeNumber valikuline: kui määratud, kuvatakse ainult sellel rajal.
 // ---------------------------------------------------------------------------
 router.post('/', asyncHandler(async (req, res) => {
-    const { templateText } = req.body;
+    const { templateText, holeNumber } = req.body;
     if (!templateText || !templateText.trim()) {
         return res.status(400).json({ error: 'Anekdoodi tekst ei tohi olla tühi.' });
     }
     const { rows } = await pool.query(
-        'INSERT INTO joke_templates (template_text) VALUES ($1) RETURNING *',
-        [templateText.trim()]
+        'INSERT INTO joke_templates (template_text, hole_number) VALUES ($1, $2) RETURNING *',
+        [templateText.trim(), holeNumber || null]
     );
     res.status(201).json({ joke: rows[0] });
 }));

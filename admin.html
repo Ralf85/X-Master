@@ -127,7 +127,10 @@ async function loadJokesList() {
       ? '<div class="empty-note">Ühtegi anekdooti pole veel lisatud.</div>'
       : data.jokes.map((j) => `
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);">
-            <span style="font-size:13px; color:var(--ink-dim);">${j.template_text}</span>
+            <div>
+              ${j.hole_number ? `<span style="display:inline-block; background:var(--accent); color:#1a0e08; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; margin-bottom:4px;">RADA ${j.hole_number}</span><br>` : ''}
+              <span style="font-size:13px; color:var(--ink-dim);">${j.template_text}</span>
+            </div>
             <span data-del-joke="${j.id}" style="cursor:pointer; color:var(--double); flex-shrink:0;">✕</span>
           </div>`).join('');
     document.querySelectorAll('[data-del-joke]').forEach((el) => {
@@ -173,9 +176,13 @@ function renderEvents() {
         <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-4px;">
           Kuvatakse mängijatele raja lõpus. Kasuta {P1}, {P2}, {P3}, {P4}... kohatäitjaid -
           need asendatakse automaatselt selle pooli päris mängijate eesnimedega.<br>
-          Näide: "{P1}, {P2}, {P3} ja {P4} läksid baari..."
+          Näide: "{P1}, {P2}, {P3} ja {P4} läksid baari..."<br>
+          Kui poolis on vähem mängijaid kui mall vajab, täidetakse ülejäänud kohad naljaka täitenimega.<br>
+          <strong>Rada number:</strong> kui määrad, kuvatakse see anekdoot GARANTEERITULT sellel rajal (mitte juhuslikult). Tühjaks jättes läheb see üldisesse juhuslikku valikusse, mida kasutatakse kõigil radadel, millel pole eraldi anekdooti määratud.
         </p>
         <textarea id="newJokeText" placeholder="{P1}, {P2}, {P3} ja {P4} läksid baari..." style="width:100%; min-height:70px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:10px 12px; font-family:var(--font-body); font-size:14px; resize:vertical;"></textarea>
+        <label style="font-size:12px; color:var(--ink-faint); margin-top:8px; display:block;">Rada number (valikuline)</label>
+        <input id="newJokeHole" type="number" min="1" placeholder="Tühjaks jätmisel läheb üldisesse juhuslikku valikusse" style="margin-top:4px;">
         <button class="btn full" id="addJokeBtn" style="margin-top:8px;">Lisa anekdoot</button>
         <div class="error-msg" id="jokeError"></div>
         <div id="jokesList" style="margin-top:16px;"></div>
@@ -208,16 +215,18 @@ function renderEvents() {
   };
   document.getElementById('addJokeBtn').onclick = async () => {
     const text = document.getElementById('newJokeText').value.trim();
+    const holeNumber = document.getElementById('newJokeHole').value;
     document.getElementById('jokeError').textContent = '';
     if (!text) return;
     try {
       const res = await fetch('/api/admin/jokes', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-        body: JSON.stringify({ templateText: text }),
+        body: JSON.stringify({ templateText: text, holeNumber: holeNumber ? Number(holeNumber) : null }),
       });
       const data = await res.json();
       if (!res.ok) { document.getElementById('jokeError').textContent = 'Viga: ' + (data.error || 'tundmatu viga'); return; }
       document.getElementById('newJokeText').value = '';
+      document.getElementById('newJokeHole').value = '';
       await loadJokesList();
     } catch (e) { document.getElementById('jokeError').textContent = 'Ühendus ebaõnnestus: ' + e.message; }
   };

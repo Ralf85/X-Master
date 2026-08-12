@@ -655,18 +655,29 @@ function renderHole() {
 // Naljanurk raja lõpus - juhuslik anekdoodi-mall, kohatäitjad {P1},{P2}...
 // asendatakse selle pooli päris mängijate eesnimedega.
 // ---------------------------------------------------------------------------
+const JOKE_FILLER_NAMES = ['Sakslane', 'Juhuslik Külaline', 'Tundmatu Sõber', 'Mööduja Peeter'];
 async function loadJokeCorner() {
   const el = document.getElementById('jokeCorner');
   if (!el) return;
   try {
-    const res = await fetch(`${API}/api/jokes/random`);
+    const hole = state.playOrder[state.holeIdx];
+    const res = await fetch(`${API}/api/jokes/random?holeNumber=${hole.hole_number}`);
     const data = await res.json();
     if (!data.joke) return;
     let text = data.joke.template_text;
     state.players.forEach((p, i) => {
       text = text.split(`{P${i + 1}}`).join(p.first_name);
     });
-    text = text.replace(/\{P\d+\}/g, '');
+    // Kui mall vajab rohkem mängijaid kui poolis päriselt on, täidetakse
+    // ülejäänud kohatäitjad naljaka täitenimega (mitte tühjaks - see lõhub lause).
+    // Sama numbriga kohatäitja saab kogu teksti ulatuses SAMA nime.
+    const fillerAssignments = {};
+    text = text.replace(/\{P(\d+)\}/g, (match, num) => {
+      if (!fillerAssignments[num]) {
+        fillerAssignments[num] = JOKE_FILLER_NAMES[Math.floor(Math.random() * JOKE_FILLER_NAMES.length)];
+      }
+      return fillerAssignments[num];
+    });
     el.innerHTML = `<div class="joke-icon">😄</div><div class="joke-text">${text}</div>`;
   } catch (e) { /* pole kriitiline, jäta lihtsalt näitamata */ }
 }
