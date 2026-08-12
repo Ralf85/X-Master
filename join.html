@@ -33,6 +33,7 @@
     width: 30px; height: 30px; border-radius: 50%; background: var(--bg-panel-2);
     border: 1px solid var(--line); display: flex; align-items: center; justify-content: center;
     font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--accent); flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(22,48,44,0.08);
   }
   .step-title { font-family: var(--font-display); font-weight: 600; font-size: 15px; }
   .step-desc { color: var(--ink-dim); font-size: 13px; margin-top: 2px; }
@@ -40,8 +41,9 @@
     display: block; width: 100%; text-align: center; text-decoration: none;
     background: var(--accent); color: #1a0e08; font-family: var(--font-display);
     font-weight: 700; font-size: 15px; padding: 15px; border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(255,107,53,0.3); transition: transform 0.12s ease, box-shadow 0.12s ease;
   }
-  .btn:active { transform: scale(0.98); }
+  .btn:active { transform: scale(0.98); box-shadow: 0 2px 8px rgba(255,107,53,0.25); }
   .secondary-link { display: block; text-align: center; margin-top: 16px; color: var(--ink-faint); font-size: 12.5px; text-decoration: underline; }
 </style>
 </head>

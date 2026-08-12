@@ -18,9 +18,13 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg-deep); color: var(--ink); font-family: var(--font-body); min-height: 100vh; }
   .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
-  .card { background: var(--bg-panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
-  h1 { font-family: var(--font-display); font-size: 22px; margin: 0 0 4px; }
-  h2 { font-family: var(--font-display); font-size: 13px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; margin: 22px 0 10px; }
+  .card { background: var(--bg-panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(22,48,44,0.04), 0 4px 16px rgba(22,48,44,0.06); }
+  h1 { font-family: var(--font-display); font-size: 25px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4px; }
+  h2 {
+    font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.07em; margin: 24px 0 10px; display: flex; align-items: center; gap: 7px;
+  }
+  h2::before { content: ''; width: 3px; height: 12px; background: var(--accent); border-radius: 2px; display: inline-block; opacity: 0.7; }
   .back-link { color: var(--ink-faint); font-size: 12px; text-decoration: none; }
   .meta { color: var(--ink-dim); font-size: 13px; margin-bottom: 4px; }
   .status-pill { font-size: 10.5px; font-family: var(--font-display); font-weight: 700; padding: 4px 10px; border-radius: 100px; text-transform: uppercase; }
@@ -47,6 +51,9 @@
   .division-body { display: none; padding: 0 14px 10px; background: var(--bg-panel); }
   .division-body .reg-row { padding-left: 0; }
   .empty-note { color: var(--ink-faint); font-size: 13px; }
+  .empty-state { text-align: center; padding: 24px 10px; color: var(--ink-faint); }
+  .empty-state .icon { font-size: 28px; margin-bottom: 8px; opacity: 0.55; }
+  .empty-state .text { font-size: 13px; }
   .btn { background: var(--accent); color: #1a0e08; border: none; font-family: var(--font-display); font-weight: 700; font-size: 12.5px; padding: 9px 15px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
   .btn.secondary { background: var(--bg-panel-2); color: var(--ink); border: 1px solid var(--line); }
   .btn.full { width: 100%; text-align: center; margin-top: 8px; }
@@ -179,7 +186,7 @@ function render() {
 
     <h2>Registreerunud mängijad (${state.registrations.length})</h2>
     <div class="card">
-      ${state.registrations.length === 0 ? '<div class="empty-note">Registreerumisi pole veel.</div>' : divisionsHtml}
+      ${state.registrations.length === 0 ? '<div class="empty-state"><div class="icon">🥏</div><div class="text">Registreerumisi pole veel - ole esimene!</div></div>' : divisionsHtml}
     </div>
 
     ${token ? state.rounds.map(renderRoundPools).join('') : ''}

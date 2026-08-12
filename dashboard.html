@@ -26,9 +26,22 @@
   .card {
     background: var(--bg-panel); border: 1px solid var(--line); border-radius: 16px;
     padding: 22px; margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(22,48,44,0.04), 0 4px 16px rgba(22,48,44,0.06);
   }
-  h1 { font-family: var(--font-display); font-size: 24px; margin: 0 0 4px; }
-  h2 { font-family: var(--font-display); font-size: 15px; color: var(--ink-dim); letter-spacing: 0.04em; text-transform: uppercase; margin: 28px 0 12px; }
+  .card.primary {
+    position: relative; padding-left: 28px; border-color: rgba(255,107,53,0.3);
+    box-shadow: 0 1px 2px rgba(255,107,53,0.08), 0 8px 24px rgba(255,107,53,0.10);
+  }
+  .card.primary::before {
+    content: ''; position: absolute; left: 0; top: 16px; bottom: 16px;
+    width: 4px; background: var(--accent); border-radius: 0 3px 3px 0;
+  }
+  h1 { font-family: var(--font-display); font-size: 27px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4px; }
+  h2 {
+    font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--ink-faint);
+    letter-spacing: 0.07em; text-transform: uppercase; margin: 30px 0 10px; display: flex; align-items: center; gap: 8px;
+  }
+  h2::before { content: ''; width: 3px; height: 13px; background: var(--accent); border-radius: 2px; display: inline-block; opacity: 0.7; }
   p.sub { color: var(--ink-dim); font-size: 13.5px; margin: 0 0 18px; }
   label { display: block; font-size: 12px; color: var(--ink-dim); margin-bottom: 6px; margin-top: 14px; }
   input, select {
@@ -66,6 +79,9 @@
   .badge.registration_closed { background: rgba(255,107,53,0.1); color: var(--ink-dim); }
   .badge.finished, .badge.archived { background: rgba(234,242,238,0.08); color: var(--ink-faint); }
   .empty-note { color: var(--ink-faint); font-size: 13px; padding: 8px 0; }
+  .empty-state { text-align: center; padding: 26px 10px; color: var(--ink-faint); }
+  .empty-state .icon { font-size: 30px; margin-bottom: 8px; opacity: 0.55; }
+  .empty-state .text { font-size: 13px; }
 
   .top-user { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   .top-user .who { font-size: 13px; color: var(--ink-dim); }
@@ -129,6 +145,9 @@ function esc(s) {
   const div = document.createElement('div');
   div.textContent = s ?? '';
   return div.innerHTML;
+}
+function emptyState(icon, text) {
+  return `<div class="empty-state"><div class="icon">${icon}</div><div class="text">${esc(text)}</div></div>`;
 }
 function avatarColor(name) { let h=0; for (const c of name) h=(h*31+c.charCodeAt(0))%AVATAR_COLORS.length; return AVATAR_COLORS[Math.abs(h)]; }
 function fmtDate(d) { return new Date(d).toLocaleDateString('et-EE', { day: 'numeric', month: 'short', year: 'numeric' }); }
@@ -511,18 +530,18 @@ function renderDashboard() {
     </div>
 
     <h2>Minu tulevased võistlused</h2>
-    <div class="card">
-      ${upcoming.length === 0 ? '<div class="empty-note">Registreerumisi pole.</div>' : upcoming.map(rowUpcoming).join('')}
+    <div class="card ${upcoming.length > 0 ? 'primary' : ''}">
+      ${upcoming.length === 0 ? emptyState('🥏', 'Sul pole veel ühtegi tulevast võistlust.') : upcoming.map(rowUpcoming).join('')}
     </div>
 
     <h2>Võistlused</h2>
     <div class="card">
-      ${allBrowsable.length === 0 ? '<div class="empty-note">Ühtegi võistlust pole veel.</div>' : allBrowsable.map((e) => rowBrowse(e, registeredEventIds)).join('')}
+      ${allBrowsable.length === 0 ? emptyState('🏆', 'Ühtegi võistlust pole veel loodud.') : allBrowsable.map((e) => rowBrowse(e, registeredEventIds)).join('')}
     </div>
 
     <h2>Toimunud võistlused</h2>
     <div class="card">
-      ${past.length === 0 ? '<div class="empty-note">Ajalugu puudub.</div>' : past.map(rowPast).join('')}
+      ${past.length === 0 ? emptyState('📜', 'Sinu võistlusajalugu ilmub siia peale esimest lõpetatud võistlust.') : past.map(rowPast).join('')}
     </div>
   `;
 
