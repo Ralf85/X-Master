@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const pool = require('./db');
 const { adminAuth } = require('./adminAuth');
 const { asyncHandler } = require('./errorHandler');
+const { loginLimiter } = require('./rateLimiters');
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ const router = express.Router();
 // POST /api/admin/login
 // Punkt 44: admin kasutab tugevamat autentimist (email + parool)
 // ---------------------------------------------------------------------------
-router.post('/login', asyncHandler(async (req, res) => {
+router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
         return res.status(400).json({ error: 'Email ja parool on kohustuslikud.' });

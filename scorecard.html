@@ -285,6 +285,11 @@ applyPlayerTheme(localStorage.getItem('dg_player_theme') || 'light');
 
 const API = '';
 const AVATAR_COLORS = ['#4fbf82', '#f2c94c', '#ff6b35', '#5b9bd5', '#c77dff', '#e8974a'];
+function esc(s) {
+  const div = document.createElement('div');
+  div.textContent = s ?? '';
+  return div.innerHTML;
+}
 const FUN_AVATARS = ['🐶','🐱','🐰','🐻','🐼','🐨','🐷','🐸','🐵','🐧','🐦','🐝','🐢','🐬','🐙','🐴'];
 function initials(f, l) { return ((f?.[0]||'') + (l?.[0]||'')).toUpperCase(); }
 function avatarColor(name) {
@@ -595,7 +600,7 @@ function renderHole() {
       const s = state.scores[scoreKey(p.player_id, hole.id)];
       const strokesColor = !s ? 'var(--ink-faint)' : s.status === 'conflict' ? 'var(--double)' : 'var(--ink)';
       const strokesDisplay = !s ? '–' : (s.status === 'dnp' ? '−' : s.strokes);
-      return `<div class="score-summary-row"><span>${p.first_name}</span><span class="strokes" style="color:${strokesColor};">${strokesDisplay}</span></div>`;
+      return `<div class="score-summary-row"><span>${esc(p.first_name)}</span><span class="strokes" style="color:${strokesColor};">${strokesDisplay}</span></div>`;
     }).join('');
     body = `<div class="done-card">
       ✓ Kõik tulemused sisestatud
@@ -612,7 +617,7 @@ function renderHole() {
         <div class="avatar-row">
           ${avatarHtml(player, '')}
           <div>
-            <div class="player-name">${player.first_name} ${player.last_name}</div>
+            <div class="player-name">${esc(player.first_name)} ${esc(player.last_name)}</div>
             <div class="player-sub">#${player.player_number}</div>
           </div>
         </div>
@@ -643,7 +648,7 @@ function renderHole() {
     <div class="sc-topbar">
       <div>
         <div class="hole-label">Rada ${hole.hole_number}</div>
-        <div class="park-name">${hole.park_name || ''}</div>
+        <div class="park-name">${esc(hole.park_name || '')}</div>
       </div>
       <div style="text-align:right;">
         <div class="par-pill">PAR ${hole.par}</div>
@@ -710,7 +715,7 @@ async function loadJokeCorner() {
       }
       return fillerAssignments[num];
     });
-    el.innerHTML = `<div class="joke-icon">😄</div><div class="joke-text">${text}</div>`;
+    el.innerHTML = `<div class="joke-icon">😄</div><div class="joke-text">${esc(text)}</div>`;
   } catch (e) { /* pole kriitiline, jäta lihtsalt näitamata */ }
 }
 

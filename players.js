@@ -5,6 +5,8 @@ const playerAuth = require('./playerAuth');
 const { asyncHandler } = require('./errorHandler');
 const { isValidPinFormat, hashPin, comparePin, generateRecoveryCode } = require('./pin');
 const { upload } = require('./uploadConfig');
+const { loginLimiter, recoveryLimiter, registerLimiter } = require('./rateLimiters');
+const { sendRecoveryEmail } = require('./email');
 
 const router = express.Router();
 
@@ -26,7 +28,7 @@ function publicPlayer(row) {
 // POST /api/players/register
 // Punkt 3: mängija konto loomine ühe korra
 // ---------------------------------------------------------------------------
-router.post('/register', asyncHandler(async (req, res) => {
+router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
     const { firstName, lastName, pin, pinConfirm, pdgaNumber, country, email, phone, birthDate, gender } = req.body;
 
     if (!firstName || !lastName) {
@@ -69,7 +71,7 @@ router.post('/register', asyncHandler(async (req, res) => {
 // POST /api/players/login
 // Punkt 5: Player ID + PIN
 // ---------------------------------------------------------------------------
-router.post('/login', asyncHandler(async (req, res) => {
+router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
     const { identifier, pin } = req.body;
     if (!identifier || !pin) {
         return res.status(400).json({ error: 'Player ID/email ja PIN on kohustuslikud.' });
@@ -93,15 +95,15 @@ router.post('/login', asyncHandler(async (req, res) => {
 // POST /api/players/forgot-pin
 // Punkt 7: kui email/telefon olemas, saadetakse taastekood
 // ---------------------------------------------------------------------------
-router.post('/forgot-pin', asyncHandler(async (req, res) => {
+router.post('/forgot-pin', recoveryLimiter, asyncHandler(async (req, res) => {
     const { playerNumber } = req.body;
     const { rows } = await pool.query('SELECT * FROM players WHERE player_number = $1', [playerNumber]);
     const player = rows[0];
 
     // Ei paljasta, kas Player ID eksisteerib, vastuse tekst on alati sama
-    const genericResponse = { message: 'Kui konto eksisteerib ja sellel on email või telefon, saadeti taastekood.' };
+    const genericResponse = { message: 'Kui konto eksisteerib ja sellel on email, saadeti taastekood emailile.' };
 
-    if (!player || (!player.email && !player.phone)) {
+    if (!player || !player.email) {
         return res.json(genericResponse);
     }
 
@@ -109,9 +111,7 @@ router.post('/forgot-pin', asyncHandler(async (req, res) => {
     const codeHash = await hashPin(code);
     await pool.query('UPDATE players SET recovery_code_hash = $1 WHERE id = $2', [codeHash, player.id]);
 
-    // TODO: siia tuleb päris email/SMS saatmine (nt Resend, Twilio) kui need
-    // teenused on valitud. MVP jaoks logime koodi serveri logisse, et saaksid testida.
-    console.log(`[FORGOT PIN] Player ${player.player_number} taastekood: ${code}`);
+    await sendRecoveryEmail({ to: player.email, playerNumber: player.player_number, recoveryCode: code });
 
     res.json(genericResponse);
 }));
@@ -119,7 +119,7 @@ router.post('/forgot-pin', asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /api/players/reset-pin
 // ---------------------------------------------------------------------------
-router.post('/reset-pin', asyncHandler(async (req, res) => {
+router.post('/reset-pin', recoveryLimiter, asyncHandler(async (req, res) => {
     const { playerNumber, recoveryCode, newPin, newPinConfirm } = req.body;
 
     if (!isValidPinFormat(newPin) || newPin !== newPinConfirm) {

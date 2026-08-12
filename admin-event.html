@@ -122,6 +122,11 @@ const token = localStorage.getItem('dg_admin_token');
 if (!token) location.href = '/admin';
 
 const app = document.getElementById('app');
+function esc(s) {
+  const div = document.createElement('div');
+  div.textContent = s ?? '';
+  return div.innerHTML;
+}
 let state = {
   event: null, divisions: [], parks: [], rounds: [],
   activeTab: 'overview', selectedRoundId: null,
@@ -167,7 +172,7 @@ function render() {
         <button class="btn secondary small" id="openLogBtn">📝 Logi</button>
       </div>
     </div>
-    <h1>${state.event.name}</h1>
+    <h1>${esc(state.event.name)}</h1>
     <div class="tabs">
       ${tabBtn('overview', 'Ülevaade')}
       ${tabBtn('registrations', 'Registreerumised')}
@@ -222,7 +227,7 @@ async function renderAnnouncements(el) {
           <div style="font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px;">Varasemad teated</div>
           ${announcements.map((a) => `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; font-size:12.5px; color:var(--ink-dim); padding:5px 0;">
-              <span>${new Date(a.created_at).toLocaleTimeString('et-EE')} — ${a.message}</span>
+              <span>${new Date(a.created_at).toLocaleTimeString('et-EE')} — ${esc(a.message)}</span>
               <span data-del-announce="${a.id}" title="Kustuta teade" style="cursor:pointer; color:var(--double); flex-shrink:0;">✕</span>
             </div>`).join('')}
         </div>` : ''}
@@ -290,7 +295,7 @@ async function renderJokes(el) {
               ${j.hole_number ? `<span style="display:inline-block; background:var(--accent); color:#1a0e08; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; margin-bottom:4px;">RADA ${j.hole_number}</span>` : ''}
               ${!j.hole_number && j.used_at ? `<span style="display:inline-block; background:var(--ink-faint); color:var(--bg-deep); font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; margin-bottom:4px;">✓ NÄIDATUD</span>` : ''}
               ${!j.hole_number && !j.used_at ? `<span style="display:inline-block; background:var(--birdie); color:var(--bg-deep); font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; margin-bottom:4px;">OOTEL</span>` : ''}
-              <br><span style="font-size:13px; color:var(--ink-dim);">${j.template_text}</span>
+              <br><span style="font-size:13px; color:var(--ink-dim);">${esc(j.template_text)}</span>
             </div>
             <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0;">
               <span data-del-joke="${j.id}" style="cursor:pointer; color:var(--double);">✕</span>
@@ -338,7 +343,7 @@ async function renderOverview(el) {
 
     <div class="card">
       <h3>Divisjonid</h3>
-      <div class="chip-list">${state.divisions.map((d) => `<div class="chip">${d.name}<span class="x" data-del-div="${d.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
+      <div class="chip-list">${state.divisions.map((d) => `<div class="chip">${esc(d.name)}<span class="x" data-del-div="${d.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
       <div class="row2" style="margin-top:12px;">
         <input id="newDivName" placeholder="nt MPO">
         <button class="btn" id="addDiv">Lisa divisjon</button>
@@ -347,7 +352,7 @@ async function renderOverview(el) {
 
     <div class="card">
       <h3>Pargid / Sektorid</h3>
-      <div class="chip-list">${state.parks.map((p) => `<div class="chip">${p.name}<span class="x" data-del-park="${p.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
+      <div class="chip-list">${state.parks.map((p) => `<div class="chip">${esc(p.name)}<span class="x" data-del-park="${p.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
       <div class="row2" style="margin-top:12px;">
         <input id="newParkName" placeholder="nt Anne kanal">
         <button class="btn" id="addPark">Lisa park</button>
@@ -395,13 +400,13 @@ async function renderRegistrations(el) {
         <tr><th>Mängija</th><th>Divisjon</th><th>Staatus</th><th></th></tr>
         ${state.registrations.map((r) => `
           <tr>
-            <td>${r.first_name} ${r.last_name}<br><span style="color:var(--ink-faint);font-size:11px;">#${r.player_number}</span></td>
+            <td>${esc(r.first_name)} ${esc(r.last_name)}<br><span style="color:var(--ink-faint);font-size:11px;">#${r.player_number}</span></td>
             <td>${r.division_name}</td>
             <td><span class="status-pill ${r.status}">${r.status}</span></td>
             <td style="white-space:nowrap;">
               ${r.status !== 'confirmed' ? `<button class="btn small" data-confirm="${r.id}">Kinnita</button>` : ''}
-              <button class="btn small secondary" data-reset-pin="${r.player_id}" data-player-name="${r.first_name} ${r.last_name}" style="margin-left:4px;">Lähtesta PIN</button>
-              <span data-remove-reg="${r.id}" data-reg-name="${r.first_name} ${r.last_name}" style="cursor:pointer; color:var(--double); font-size:11px; margin-left:8px; white-space:nowrap;">Eemalda</span>
+              <button class="btn small secondary" data-reset-pin="${r.player_id}" data-player-name="${esc(r.first_name)} ${esc(r.last_name)}" style="margin-left:4px;">Lähtesta PIN</button>
+              <span data-remove-reg="${r.id}" data-reg-name="${esc(r.first_name)} ${esc(r.last_name)}" style="cursor:pointer; color:var(--double); font-size:11px; margin-left:8px; white-space:nowrap;">Eemalda</span>
             </td>
           </tr>`).join('')}
       </table>`}
@@ -415,7 +420,7 @@ async function renderRegistrations(el) {
           <div id="apSuggestions" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-panel); border:1px solid var(--line); border-radius:8px; margin-top:4px; z-index:10; max-height:220px; overflow-y:auto; box-shadow:0 4px 14px rgba(0,0,0,0.25);"></div>
         </div>
         <input id="apLast" placeholder="Perekonnanimi">
-        <select id="apDiv">${state.divisions.map((d) => `<option value="${d.id}">${d.name}</option>`).join('')}</select>
+        <select id="apDiv">${state.divisions.map((d) => `<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select>
       </div>
       <div id="apSelectedBadge" style="display:none; margin-top:8px;"></div>
       <button class="btn full" id="addPlayerBtn" style="margin-top:8px;">Lisa mängija</button>
@@ -466,9 +471,9 @@ async function renderRegistrations(el) {
       const data = await api(`/api/admin/players?search=${encodeURIComponent(q)}`);
       if (data.players.length === 0) { suggestionsEl.style.display = 'none'; return; }
       suggestionsEl.innerHTML = data.players.slice(0, 6).map((p) => `
-        <div data-pick-player="${p.id}" data-pick-first="${p.first_name}" data-pick-last="${p.last_name}"
+        <div data-pick-player="${p.id}" data-pick-first="${esc(p.first_name)}" data-pick-last="${esc(p.last_name)}"
              style="padding:9px 12px; cursor:pointer; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; font-size:13px;">
-          <span>${p.first_name} ${p.last_name} <span style="color:var(--ink-faint); font-size:11px;">#${p.player_number}</span></span>
+          <span>${esc(p.first_name)} ${esc(p.last_name)} <span style="color:var(--ink-faint); font-size:11px;">#${p.player_number}</span></span>
           <span style="color:var(--accent);" title="Olemasolev kasutaja">★</span>
         </div>`).join('');
       suggestionsEl.style.display = 'block';
@@ -549,7 +554,7 @@ async function renderRounds(el) {
           <tr data-hole-row="${h.id}">
             <td><input type="number" class="editHn" value="${h.hole_number}" style="width:60px;"></td>
             <td><input type="number" class="editHp" value="${h.par}" style="width:60px;"></td>
-            <td><select class="editHpark">${state.parks.map((p) => `<option value="${p.id}" ${p.id===h.park_id?'selected':''}>${p.name}</option>`).join('')}</select></td>
+            <td><select class="editHpark">${state.parks.map((p) => `<option value="${p.id}" ${p.id===h.park_id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></td>
             <td style="white-space:nowrap;">
               <span style="cursor:pointer; color:var(--ink-faint);" data-delete-hole="${h.id}">✕</span>
             </td>
@@ -557,7 +562,7 @@ async function renderRounds(el) {
       </table>
       <h3 style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">🏞️ Lisa terve park korraga (nt "Harjumägi: rajad 1-14")</h3>
       <div class="row3">
-        <div><label>Park</label><select id="rangePark">${state.parks.map((p) => `<option value="${p.id}">${p.name}</option>`).join('')}</select></div>
+        <div><label>Park</label><select id="rangePark">${state.parks.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
         <div><label>Algus rada</label><input id="rangeStart" type="number" placeholder="nt 1"></div>
         <div><label>Lõpp rada</label><input id="rangeEnd" type="number" placeholder="nt 14"></div>
       </div>
@@ -727,7 +732,7 @@ async function openSelfCorrectionLog() {
         <tr><th>Mängija</th><th>Rada</th><th>Muudatus</th><th>Kes parandas</th><th>Millal</th></tr>
         ${data.log.map((l) => `
           <tr>
-            <td>${l.first_name} ${l.last_name}</td>
+            <td>${esc(l.first_name)} ${esc(l.last_name)}</td>
             <td>${l.hole_number}</td>
             <td>${l.old_value} → <strong>${l.new_value}</strong></td>
             <td>${l.actor_first_name || '—'} ${l.actor_last_name || ''}</td>
@@ -856,7 +861,7 @@ function addHoleRow(presetNum, presetPar, presetParkId) {
   row.innerHTML = `
     <input type="number" class="hn" placeholder="Rada" value="${nextNum}">
     <input type="number" class="hp" placeholder="Par" value="${nextPar}">
-    <select class="hpark">${state.parks.map((p) => `<option value="${p.id}" ${presetParkId && p.id === presetParkId ? 'selected' : ''}>${p.name}</option>`).join('')}</select>
+    <select class="hpark">${state.parks.map((p) => `<option value="${p.id}" ${presetParkId && p.id === presetParkId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
     <span style="cursor:pointer; color:var(--ink-faint);" onclick="this.parentElement.remove()">✕</span>`;
   container.appendChild(row);
 }
@@ -954,7 +959,7 @@ async function renderConflicts(el) {
       <h3>Lahendamata konfliktid (${state.conflicts.length})</h3>
       ${state.conflicts.length === 0 ? '<div class="empty-note">Konflikte pole. 🎉</div>' : state.conflicts.map((c) => `
         <div style="border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px;">
-          <div><strong>${c.first_name} ${c.last_name}</strong> · Rada ${c.hole_number}</div>
+          <div><strong>${esc(c.first_name)} ${esc(c.last_name)}</strong> · Rada ${c.hole_number}</div>
           <div style="font-size:12.5px; color:var(--ink-dim); margin:4px 0 10px;">Salvestatud: ${c.existing_value} · Üritati: ${c.attempted_value}</div>
           <div class="row2">
             <input type="number" class="resVal" placeholder="Õige tulemus" value="${c.existing_value}">

@@ -115,6 +115,11 @@ document.getElementById('playerThemeToggle').onclick = togglePlayerTheme;
 applyPlayerTheme(localStorage.getItem('dg_player_theme') || 'light');
 
 const AVATAR_COLORS = ['#4fbf82', '#f2c94c', '#ff6b35', '#5b9bd5', '#c77dff', '#e8974a'];
+function esc(s) {
+  const div = document.createElement('div');
+  div.textContent = s ?? '';
+  return div.innerHTML;
+}
 function avatarColor(name) { let h=0; for (const c of name) h=(h*31+c.charCodeAt(0))%AVATAR_COLORS.length; return AVATAR_COLORS[Math.abs(h)]; }
 function fmtDate(d) { return new Date(d).toLocaleDateString('et-EE', { day: 'numeric', month: 'short', year: 'numeric' }); }
 
@@ -153,8 +158,10 @@ function renderAuth(mode, errorMsg) {
       <label>PIN</label>
       <input id="pin" type="password" inputmode="numeric" placeholder="••••">
       <button class="btn full" id="doLogin">Logi sisse</button>
+      <div style="text-align:center; margin-top:10px;"><span id="forgotPinLink" style="color:var(--ink-faint); font-size:12.5px; cursor:pointer; text-decoration:underline;">Unustasin PIN-i</span></div>
       <div class="error-msg">${errorMsg || ''}</div>`;
     document.getElementById('doLogin').onclick = doLogin;
+    document.getElementById('forgotPinLink').onclick = () => renderForgotPin();
   } else {
     formEl.innerHTML = `
       <label>Eesnimi</label><input id="firstName">
@@ -174,6 +181,76 @@ function renderAuth(mode, errorMsg) {
       <div class="error-msg">${errorMsg || ''}</div>`;
     document.getElementById('doRegister').onclick = doRegister;
   }
+}
+
+function renderForgotPin() {
+  app.innerHTML = `
+    <div class="card">
+      <h1>Unustasin PIN-i</h1>
+      <p class="sub">Sisesta oma Player ID - saadame taastekoodi sinu emailile.</p>
+      <label>Player ID</label>
+      <input id="forgotPlayerId" type="text" inputmode="numeric" placeholder="nt 18472">
+      <button class="btn full" id="sendForgotBtn" style="margin-top:14px;">Saada taastekood</button>
+      <div class="ok-msg" id="forgotStatus" style="color:var(--birdie); font-size:13px; margin-top:10px;"></div>
+      <div class="error-msg" id="forgotError"></div>
+      <div style="text-align:center; margin-top:14px;"><span id="backToLoginLink" style="color:var(--ink-faint); font-size:12.5px; cursor:pointer; text-decoration:underline;">← Tagasi sisselogimisse</span></div>
+    </div>`;
+  document.getElementById('backToLoginLink').onclick = () => renderAuth('login');
+  document.getElementById('sendForgotBtn').onclick = async () => {
+    const playerNumber = document.getElementById('forgotPlayerId').value.trim();
+    const statusEl = document.getElementById('forgotStatus');
+    const errEl = document.getElementById('forgotError');
+    errEl.textContent = ''; statusEl.textContent = '';
+    if (!playerNumber) { errEl.textContent = 'Player ID on kohustuslik.'; return; }
+    try {
+      const res = await fetch('/api/players/forgot-pin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerNumber }),
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.error; return; }
+      statusEl.textContent = data.message;
+      setTimeout(() => renderResetPin(playerNumber), 1500);
+    } catch (e) { errEl.textContent = 'Ühendus ebaõnnestus.'; }
+  };
+}
+
+function renderResetPin(playerNumber) {
+  app.innerHTML = `
+    <div class="card">
+      <h1>Sisesta taastekood</h1>
+      <p class="sub">Kontrolli oma emaili (ka rämpsposti kausta) ja sisesta saadud kood.</p>
+      <label>Player ID</label>
+      <input id="resetPlayerId" value="${playerNumber || ''}">
+      <label>Taastekood</label>
+      <input id="resetCode" inputmode="numeric" placeholder="8-kohaline kood">
+      <label>Uus PIN (4-6 numbrit)</label>
+      <input id="resetNewPin" type="password" inputmode="numeric">
+      <label>Korda uut PIN-i</label>
+      <input id="resetNewPinConfirm" type="password" inputmode="numeric">
+      <button class="btn full" id="doResetBtn" style="margin-top:14px;">Määra uus PIN</button>
+      <div class="error-msg" id="resetError"></div>
+      <div style="text-align:center; margin-top:14px;"><span id="backToLoginLink2" style="color:var(--ink-faint); font-size:12.5px; cursor:pointer; text-decoration:underline;">← Tagasi sisselogimisse</span></div>
+    </div>`;
+  document.getElementById('backToLoginLink2').onclick = () => renderAuth('login');
+  document.getElementById('doResetBtn').onclick = async () => {
+    const body = {
+      playerNumber: document.getElementById('resetPlayerId').value.trim(),
+      recoveryCode: document.getElementById('resetCode').value.trim(),
+      newPin: document.getElementById('resetNewPin').value,
+      newPinConfirm: document.getElementById('resetNewPinConfirm').value,
+    };
+    const errEl = document.getElementById('resetError');
+    errEl.textContent = '';
+    try {
+      const res = await fetch('/api/players/reset-pin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.error; return; }
+      renderAuth('login', '✓ PIN on uuendatud. Logi uue PIN-iga sisse.');
+    } catch (e) { errEl.textContent = 'Ühendus ebaõnnestus.'; }
+  };
 }
 
 async function doLogin() {
@@ -359,7 +436,7 @@ function renderDashboard() {
 
   app.innerHTML = `
     <div class="top-user">
-      <div class="who">Tere, <strong style="color:var(--ink)">${state.player.first_name}</strong> · #${state.player.player_number}</div>
+      <div class="who">Tere, <strong style="color:var(--ink)">${esc(state.player.first_name)}</strong> · #${state.player.player_number}</div>
       <div class="logout-link" id="logoutBtn">Logi välja</div>
     </div>
 
@@ -380,8 +457,8 @@ function renderDashboard() {
       <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
         <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Nimi</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <input id="editFirstName" value="${state.player.first_name}" placeholder="Eesnimi">
-          <input id="editLastName" value="${state.player.last_name}" placeholder="Perekonnanimi">
+          <input id="editFirstName" value="${esc(state.player.first_name)}" placeholder="Eesnimi">
+          <input id="editLastName" value="${esc(state.player.last_name)}" placeholder="Perekonnanimi">
         </div>
         <button class="btn small" id="saveNameBtn" style="margin-top:10px;">Salvesta nimi</button>
         <div class="error-msg" id="nameError"></div>
@@ -441,7 +518,7 @@ function renderDashboard() {
 
 function rowUpcoming(r) {
   return `<a href="/event?slug=${r.slug}" class="event-row" style="text-decoration:none; color:inherit; align-items:center;">
-    <div><div class="event-name">${r.event_name}</div><div class="event-meta">${fmtDate(r.start_date)} · ${r.division_name}</div></div>
+    <div><div class="event-name">${esc(r.event_name)}</div><div class="event-meta">${fmtDate(r.start_date)} · ${esc(r.division_name)}</div></div>
     <div style="display:flex; align-items:center; gap:8px;">
       <span class="badge ${r.status}">${r.status === 'confirmed' ? 'KINNITATUD' : 'REGISTREERITUD'}</span>
       <span class="btn small" style="pointer-events:none;">Vali pool / Märgi →</span>
@@ -449,19 +526,19 @@ function rowUpcoming(r) {
   </a>`;
 }
 function rowPast(r) {
-  return `<a href="/event?slug=${r.slug}" class="event-row" style="text-decoration:none; color:inherit;">    <div><div class="event-name">${r.event_name}</div><div class="event-meta">${fmtDate(r.start_date)} · ${r.division_name}</div></div>
+  return `<a href="/event?slug=${r.slug}" class="event-row" style="text-decoration:none; color:inherit;">    <div><div class="event-name">${esc(r.event_name)}</div><div class="event-meta">${fmtDate(r.start_date)} · ${esc(r.division_name)}</div></div>
   </a>`;
 }
 function rowOpen(e) {
   return `<div class="event-row">
-    <div><div class="event-name">${e.name}</div><div class="event-meta">${fmtDate(e.start_date)}${e.location ? ' · ' + e.location : ''}</div></div>
-    <button class="btn small" data-register="${e.id}" data-name="${e.name}">Registreeru</button>
+    <div><div class="event-name">${esc(e.name)}</div><div class="event-meta">${fmtDate(e.start_date)}${e.location ? ' · ' + e.location : ''}</div></div>
+    <button class="btn small" data-register="${e.id}" data-name="${esc(e.name)}">Registreeru</button>
   </div>`;
 }
 
 function rowBrowse(e) {
   return `<a href="/event?slug=${e.slug}" class="event-row" style="text-decoration:none; color:inherit;">
-    <div><div class="event-name">${e.name}</div><div class="event-meta">${fmtDate(e.start_date)}${e.location ? ' · ' + e.location : ''}</div></div>
+    <div><div class="event-name">${esc(e.name)}</div><div class="event-meta">${fmtDate(e.start_date)}${e.location ? ' · ' + e.location : ''}</div></div>
     <span class="badge ${e.status}">${e.status.replace('_',' ')}</span>
   </a>`;
 }

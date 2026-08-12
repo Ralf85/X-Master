@@ -372,6 +372,11 @@ applyPlayerTheme(localStorage.getItem('dg_player_theme') || 'light');
 
 const params = new URLSearchParams(location.search);
 const AVATAR_COLORS = ['#4fbf82', '#f2c94c', '#ff6b35', '#5b9bd5', '#c77dff', '#e8974a'];
+function esc(s) {
+  const div = document.createElement('div');
+  div.textContent = s ?? '';
+  return div.innerHTML;
+}
 const FUN_AVATARS = ['🐶','🐱','🐰','🐻','🐼','🐨','🐷','🐸','🐵','🐧','🐦','🐝','🐢','🐬','🐙','🐴'];
 
 function initials(first, last) {
@@ -441,7 +446,7 @@ function render(data) {
 
   let parkRow = `<th class="corner-th"></th>`;
   for (const g of parkGroups) {
-    parkRow += `<th class="park-th" colspan="${g.count}" data-park-id="${g.park_id}" data-park-name="${g.name}" style="cursor:${g.park_id ? 'pointer' : 'default'};">${g.name}${g.park_id ? ' 🔍' : ''}</th>`;
+    parkRow += `<th class="park-th" colspan="${g.count}" data-park-id="${g.park_id}" data-park-name="${esc(g.name)}" style="cursor:${g.park_id ? 'pointer' : 'default'};">${esc(g.name)}${g.park_id ? ' 🔍' : ''}</th>`;
   }
 
   let holeRow = `<th class="corner-th" style="top:37px;"></th>`;
@@ -466,8 +471,8 @@ function render(data) {
             <div class="rank">${p.thru > 0 ? i + 1 : '–'}</div>
             ${avatarHtml}
             <div class="name-block">
-              <div class="firstname">${p.firstName}</div>
-              <div class="lastname-row">${p.lastName}</div>
+              <div class="firstname">${esc(p.firstName)}</div>
+              <div class="lastname-row">${esc(p.lastName)}</div>
             </div>
             <div class="totals">
               <div class="rel-score ${relClass}">${fmtRelative(p.relativeToPar)}</div>
@@ -578,7 +583,7 @@ async function openParkModal(parkId, parkName) {
           <span style="display:flex; align-items:center; gap:10px;">
             <span style="width:16px; text-align:right; flex-shrink:0; color:var(--ink-faint); font-family:var(--font-display); font-weight:700; font-size:13px;">${i + 1}.</span>
             ${avatarHtml}
-            <span>${r.firstName} ${r.lastName}</span>
+            <span>${esc(r.firstName)} ${esc(r.lastName)}</span>
           </span>
           <span style="font-family:var(--font-display); font-weight:700; color:${r.relativeToPar < 0 ? 'var(--birdie)' : r.relativeToPar > 0 ? 'var(--bogey)' : 'var(--ink)'};">${r.relativeToPar === 0 ? 'E' : r.relativeToPar > 0 ? '+' + r.relativeToPar : r.relativeToPar}</span>
         </div>`;
@@ -608,7 +613,7 @@ function renderPoolsView(poolsData) {
         <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; padding:14px;">
           <div style="font-family:var(--font-display); font-weight:600; margin-bottom:8px;">Pool ${p.pool_number}${p.start_time ? ' · ' + p.start_time : ''}</div>
           <div style="font-size:12.5px; color:var(--ink-dim);">
-            ${p.players.map((pl) => `<div style="padding:3px 0;">${pl.first_name} ${pl.last_name}</div>`).join('') || '<span style="color:var(--ink-faint);">Tühi</span>'}
+            ${p.players.map((pl) => `<div style="padding:3px 0;">${esc(pl.first_name)} ${esc(pl.last_name)}</div>`).join('') || '<span style="color:var(--ink-faint);">Tühi</span>'}
           </div>
         </div>`).join('')}
     </div>

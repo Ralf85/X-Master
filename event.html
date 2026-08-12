@@ -78,6 +78,11 @@ const params = new URLSearchParams(location.search);
 const slug = params.get('slug');
 const token = localStorage.getItem('dg_player_token');
 const app = document.getElementById('app');
+function esc(s) {
+  const div = document.createElement('div');
+  div.textContent = s ?? '';
+  return div.innerHTML;
+}
 let state = { event: null, divisions: [], rounds: [], registrations: [], myRegistration: null, poolsByRound: {} };
 
 async function load() {
@@ -120,17 +125,17 @@ function render() {
   const divisionsHtml = Object.entries(divGroups).map(([divName, regs], idx) => `
     <div class="division-group">
       <div class="division-header" data-toggle-div="d${idx}">
-        <span class="label">${divName} (${regs.length})</span>
+        <span class="label">${esc(divName)} (${regs.length})</span>
         <span class="chevron" id="chev-d${idx}">▾</span>
       </div>
       <div class="division-body" id="divBody-d${idx}">
-        ${regs.map((r) => `<div class="reg-row"><span>${r.first_name} ${r.last_name}</span><span class="status-pill ${r.status}">${r.status}</span></div>`).join('')}
+        ${regs.map((r) => `<div class="reg-row"><span>${esc(r.first_name)} ${esc(r.last_name)}</span><span class="status-pill ${r.status}">${r.status}</span></div>`).join('')}
       </div>
     </div>`).join('');
 
   app.innerHTML = `
     <a class="back-link" href="/dashboard">← Minu konto</a>
-    <h1>${state.event.name}</h1>
+    <h1>${esc(state.event.name)}</h1>
     <div class="meta">${state.event.location || ''} ${state.event.start_date ? '· ' + new Date(state.event.start_date).toLocaleDateString('et-EE') : ''}</div>
     <span class="status-pill ${state.event.status}">${state.event.status.replace('_',' ')}</span>
 
@@ -228,7 +233,7 @@ function renderRoundPools(round) {
               <span class="pool-title">Pool ${p.pool_number}${p.locked ? ' 🔒' : ''}</span>
               <span class="pool-count">${p.players.length}${p.max_players ? '/' + p.max_players : ''} mängijat</span>
             </div>
-            <div class="pool-members">${p.players.map((pl) => pl.first_name + ' ' + pl.last_name).join(', ') || 'Tühi'}</div>
+            <div class="pool-members">${p.players.map((pl) => esc(pl.first_name) + ' ' + esc(pl.last_name)).join(', ') || 'Tühi'}</div>
             ${!isRegistered ? '' : p.id === myPoolId
               ? `<button class="btn secondary full" data-leave="${p.id}" data-round="${round.id}">Lahku sellest poolist</button>`
               : (myPoolId ? '' : (p.locked ? `<div class="empty-note" style="margin-top:8px;">🔒 Lukustatud</div>` : (p.isFull ? `<div class="empty-note" style="margin-top:8px;">Täis</div>` : `<button class="btn full" data-join="${p.id}" data-round="${round.id}">Liitu selle pooliga</button>`)))
