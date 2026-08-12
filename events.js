@@ -29,6 +29,7 @@ router.get('/:slug', asyncHandler(async (req, res) => {
     );
     const event = rows[0];
     if (!event) return res.status(404).json({ error: 'Võistlust ei leitud.' });
+    delete event.guide_file_data; // binaarandmed ei pea event'i JSON-i sisse minema
 
     const [divisions, parks, rounds, registrations] = await Promise.all([
         pool.query('SELECT id, name, sort_order FROM divisions WHERE event_id = $1 ORDER BY sort_order', [event.id]),
@@ -52,6 +53,21 @@ router.get('/:slug', asyncHandler(async (req, res) => {
         rounds: rounds.rows,
         registrations: registrations.rows,
     });
+}));
+
+// ---------------------------------------------------------------------------
+// GET /api/events/:id/guide-file
+// Avalik - serveerib event'i juhendi dokumendi (PDF/Word/pilt) baite.
+// ---------------------------------------------------------------------------
+router.get('/:id/guide-file', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+        'SELECT guide_file_data, guide_file_mimetype, guide_file_name FROM events WHERE id = $1',
+        [req.params.id]
+    );
+    if (!rows[0] || !rows[0].guide_file_data) return res.status(404).send('Juhendit ei leitud.');
+    res.set('Content-Type', rows[0].guide_file_mimetype);
+    res.set('Content-Disposition', `inline; filename="${rows[0].guide_file_name || 'juhend'}"`);
+    res.send(rows[0].guide_file_data);
 }));
 
 module.exports = router;

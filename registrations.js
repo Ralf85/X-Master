@@ -71,7 +71,7 @@ router.get('/', asyncHandler(async (req, res) => {
         `SELECT r.id, r.status, r.registered_at, r.confirmed_at, r.completed_at,
                 COALESCE(r.bank_paid_at, r.stebby_paid_at) AS paid_at,
                 e.id AS event_id, e.name AS event_name, e.slug, e.start_date, e.end_date, e.status AS event_status,
-                e.payment_link,
+                e.payment_link, e.guide_text, e.guide_file_url, e.guide_file_name,
                 d.name AS division_name
          FROM registrations r
          JOIN events e ON e.id = r.event_id

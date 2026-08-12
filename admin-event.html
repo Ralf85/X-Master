@@ -355,6 +355,26 @@ async function renderOverview(el) {
     </div>
 
     <div class="card">
+      <h3>📋 Juhend</h3>
+      <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-6px;">
+        Lisa võistluse juhend kas vaba tekstina, dokumendina (PDF/Word) või mõlemat korraga.
+        Mängijad näevad oma "Minu konto" lehel "Juhend" nuppu.
+      </p>
+      <label style="font-size:12px; color:var(--ink-faint); display:block; margin-top:8px;">Tekst</label>
+      <textarea id="guideTextInput" placeholder="nt Start kell 10:00, kogunemine parklas..." style="width:100%; min-height:90px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:10px 12px; font-family:var(--font-body); font-size:14px; resize:vertical; margin-top:4px;">${esc(state.event.guide_text || '')}</textarea>
+      <button class="btn small" id="saveGuideText" style="margin-top:8px;">Salvesta tekst</button>
+      <div class="ok-msg" id="guideTextMsg"></div>
+
+      <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
+        <label style="font-size:12px; color:var(--ink-faint); display:block; margin-bottom:6px;">Dokument (PDF, Word või pilt, kuni 15MB)</label>
+        ${state.event.guide_file_name ? `<div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">📎 <a href="${state.event.guide_file_url}" target="_blank" style="color:var(--ink);">${esc(state.event.guide_file_name)}</a> <span data-remove-guide-file style="cursor:pointer; color:var(--double); margin-left:8px; text-decoration:underline; font-size:12px;">eemalda</span></div>` : ''}
+        <input type="file" id="guideFileInput" accept=".pdf,.doc,.docx,image/png,image/jpeg,image/webp" style="display:none;">
+        <button class="btn small secondary" id="guideFilePickBtn">${state.event.guide_file_name ? 'Asenda fail' : 'Laadi fail üles'}</button>
+        <div class="error-msg" id="guideFileError"></div>
+      </div>
+    </div>
+
+    <div class="card">
       <h3>Divisjonid</h3>
       <div class="chip-list">${state.divisions.map((d) => `<div class="chip">${esc(d.name)}${d.gender ? ` <span style="opacity:0.6; font-size:11px;">(${d.gender === 'M' ? 'mehed' : 'naised'})</span>` : (d.name === 'Mehed' || d.name === 'Naised' ? ' <span style="color:var(--bogey); font-size:11px;">⚠ soo-märgend puudub</span>' : '')}<span class="x" data-del-div="${d.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
       <div class="row2" style="margin-top:12px;">
@@ -391,6 +411,39 @@ async function renderOverview(el) {
       state.event.payment_link = paymentLink;
     } catch (e) { document.getElementById('paymentLinkMsg').textContent = ''; alert('Viga: ' + e.message); }
   };
+  document.getElementById('saveGuideText').onclick = async () => {
+    const guideText = document.getElementById('guideTextInput').value;
+    try {
+      await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ guideText }) });
+      document.getElementById('guideTextMsg').textContent = '✓ Salvestatud';
+      state.event.guide_text = guideText;
+    } catch (e) { document.getElementById('guideTextMsg').textContent = ''; alert('Viga: ' + e.message); }
+  };
+  document.getElementById('guideFilePickBtn').onclick = () => document.getElementById('guideFileInput').click();
+  document.getElementById('guideFileInput').onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    document.getElementById('guideFileError').textContent = '';
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/guide-file`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) { document.getElementById('guideFileError').textContent = data.error; return; }
+      loadEvent();
+    } catch (err) { document.getElementById('guideFileError').textContent = 'Üleslaadimine ebaõnnestus.'; }
+  };
+  const removeGuideFileEl = document.querySelector('[data-remove-guide-file]');
+  if (removeGuideFileEl) {
+    removeGuideFileEl.onclick = async () => {
+      const ok = confirm('Eemaldada juhendi dokument?');
+      if (!ok) return;
+      await api(`/api/admin/events/${eventId}/guide-file`, { method: 'DELETE' });
+      loadEvent();
+    };
+  }
   document.getElementById('addDiv').onclick = async () => {
     const name = document.getElementById('newDivName').value;
     if (!name) return;

@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('./db');
 const { adminAuth } = require('./adminAuth');
 const { asyncHandler } = require('./errorHandler');
+const { uploadGuideFile } = require('./uploadConfig');
 
 const router = express.Router();
 router.use(adminAuth);
@@ -60,7 +61,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 router.patch('/:id', asyncHandler(async (req, res) => {
     const { name, location, startDate, endDate, registrationStart, registrationEnd,
-            registrationLimit, logoUrl, brandingTheme, status, paymentLink } = req.body;
+            registrationLimit, logoUrl, brandingTheme, status, paymentLink, guideText } = req.body;
 
     const validStatuses = ['draft', 'registration_open', 'registration_closed', 'live', 'finished', 'archived'];
     if (status && !validStatuses.includes(status)) {
@@ -79,15 +80,48 @@ router.patch('/:id', asyncHandler(async (req, res) => {
             logo_url = COALESCE($8, logo_url),
             branding_theme = COALESCE($9, branding_theme),
             status = COALESCE($10, status),
-            payment_link = COALESCE($11, payment_link)
-         WHERE id = $12
+            payment_link = COALESCE($11, payment_link),
+            guide_text = COALESCE($12, guide_text)
+         WHERE id = $13
          RETURNING *`,
         [name, location, startDate, endDate, registrationStart, registrationEnd,
          registrationLimit, logoUrl, brandingTheme ? JSON.stringify(brandingTheme) : null,
-         status, paymentLink, req.params.id]
+         status, paymentLink, guideText, req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Võistlust ei leitud.' });
     res.json({ event: rows[0] });
+}));
+
+// ---------------------------------------------------------------------------
+// Juhendi dokument (PDF/Word/pilt) - läheb otse andmebaasi, sama muster
+// mis mängija profiilipildil.
+// ---------------------------------------------------------------------------
+router.post('/:id/guide-file', uploadGuideFile.single('file'), asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Fail on kohustuslik.' });
+
+    const publicUrl = `/api/events/${req.params.id}/guide-file?v=${Date.now()}`;
+    const { rows } = await pool.query(
+        `UPDATE events SET
+            guide_file_url = $1, guide_file_data = $2, guide_file_mimetype = $3, guide_file_name = $4
+         WHERE id = $5 RETURNING *`,
+        [publicUrl, req.file.buffer, req.file.mimetype, req.file.originalname, req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Võistlust ei leitud.' });
+    res.json({ event: rows[0] });
+}));
+
+router.use('/:id/guide-file', (err, req, res, next) => {
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+});
+
+router.delete('/:id/guide-file', asyncHandler(async (req, res) => {
+    await pool.query(
+        `UPDATE events SET guide_file_url = NULL, guide_file_data = NULL, guide_file_mimetype = NULL, guide_file_name = NULL
+         WHERE id = $1`,
+        [req.params.id]
+    );
+    res.json({ message: 'Juhendi fail eemaldatud.' });
 }));
 
 // ---------------------------------------------------------------------------

@@ -27,15 +27,25 @@
   .status-pill.registration_open { background: rgba(79,191,130,0.15); color: var(--birdie); }
   .status-pill.registered, .status-pill.live { background: rgba(255,107,53,0.15); color: var(--accent); }
   .status-pill.confirmed { background: rgba(79,191,130,0.25); color: var(--birdie); }
-  .reg-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .reg-row { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
   .reg-row:last-child { border-bottom: none; }
-  .division-group { border-bottom: 1px solid var(--line); }
-  .division-group:last-child { border-bottom: none; }
-  .division-header { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; cursor: pointer; }
-  .division-header .label { font-family: var(--font-display); font-weight: 600; font-size: 13.5px; }
-  .division-header .chevron { color: var(--ink-faint); font-size: 12px; transition: transform 0.15s; }
-  .division-body { display: none; padding-bottom: 8px; }
-  .division-body .reg-row { padding-left: 8px; border-bottom: none; }
+  .reg-row .mini-avatar {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-panel-2); color: var(--ink-dim);
+    font-family: var(--font-display); font-weight: 600; font-size: 10.5px;
+  }
+  .reg-row .reg-name { flex: 1; }
+  .division-group { border-radius: 12px; overflow: hidden; margin-bottom: 8px; background: var(--bg-panel-2); }
+  .division-group:last-child { margin-bottom: 0; }
+  .division-header { display: flex; justify-content: space-between; align-items: center; padding: 13px 14px; cursor: pointer; transition: background 0.15s; }
+  .division-header:hover { background: rgba(255,107,53,0.06); }
+  .division-header .label { font-family: var(--font-display); font-weight: 700; font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
+  .division-header .count-chip { background: var(--bg-panel); color: var(--ink-faint); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 100px; }
+  .division-header .chevron { color: var(--ink-faint); font-size: 12px; transition: transform 0.2s ease; }
+  .division-header .chevron.open { transform: rotate(180deg); }
+  .division-body { display: none; padding: 0 14px 10px; background: var(--bg-panel); }
+  .division-body .reg-row { padding-left: 0; }
   .empty-note { color: var(--ink-faint); font-size: 13px; }
   .btn { background: var(--accent); color: #1a0e08; border: none; font-family: var(--font-display); font-weight: 700; font-size: 12.5px; padding: 9px 15px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
   .btn.secondary { background: var(--bg-panel-2); color: var(--ink); border: 1px solid var(--line); }
@@ -83,6 +93,10 @@ function esc(s) {
   div.textContent = s ?? '';
   return div.innerHTML;
 }
+const STATUS_LABELS_ET = {
+  draft: 'Mustand', registration_open: 'Registreerimine avatud', registration_closed: 'Registreerimine suletud',
+  live: 'Käimas', finished: 'Lõppenud', archived: 'Arhiveeritud',
+};
 let state = { event: null, divisions: [], rounds: [], registrations: [], myRegistration: null, poolsByRound: {} };
 
 async function load(retriesLeft) {
@@ -137,11 +151,11 @@ function render() {
   const divisionsHtml = Object.entries(divGroups).map(([divName, regs], idx) => `
     <div class="division-group">
       <div class="division-header" data-toggle-div="d${idx}">
-        <span class="label">${esc(divName)} (${regs.length})</span>
+        <span class="label">🏆 ${esc(divName)} <span class="count-chip">${regs.length}</span></span>
         <span class="chevron" id="chev-d${idx}">▾</span>
       </div>
       <div class="division-body" id="divBody-d${idx}">
-        ${regs.map((r) => `<div class="reg-row"><span>${esc(r.first_name)} ${esc(r.last_name)}</span><span class="status-pill ${r.status}">${r.status}</span></div>`).join('')}
+        ${regs.map((r) => `<div class="reg-row"><div class="mini-avatar">${(r.first_name?.[0]||'')+(r.last_name?.[0]||'')}</div><span class="reg-name">${esc(r.first_name)} ${esc(r.last_name)}</span></div>`).join('')}
       </div>
     </div>`).join('');
 
@@ -149,7 +163,7 @@ function render() {
     <a class="back-link" href="/dashboard">← Minu konto</a>
     <h1>${esc(state.event.name)}</h1>
     <div class="meta">${state.event.location || ''} ${state.event.start_date ? '· ' + new Date(state.event.start_date).toLocaleDateString('et-EE') : ''}</div>
-    <span class="status-pill ${state.event.status}">${state.event.status.replace('_',' ')}</span>
+    <span class="status-pill ${state.event.status}">${STATUS_LABELS_ET[state.event.status] || state.event.status.replace('_',' ')}</span>
 
     ${!token ? `<div class="card" style="margin-top:16px;">Logi sisse, et registreeruda või pooli valida. <a href="/dashboard" class="btn small" style="margin-top:8px;">Mine kontole</a></div>` : ''}
 
@@ -178,7 +192,7 @@ function render() {
       const chev = document.getElementById(`chev-${id}`);
       const isHidden = body.style.display !== 'block';
       body.style.display = isHidden ? 'block' : 'none';
-      chev.textContent = isHidden ? '▴' : '▾';
+      chev.classList.toggle('open', isHidden);
     };
   });
   document.querySelectorAll('[data-toggle-pools]').forEach((btn) => {

@@ -59,6 +59,7 @@
   .badge { font-size: 10.5px; font-family: var(--font-display); font-weight: 700; padding: 4px 9px; border-radius: 100px; letter-spacing: 0.03em; }
   .badge.registered { background: rgba(79,191,130,0.15); color: var(--birdie); }
   .badge.confirmed { background: rgba(79,191,130,0.25); color: var(--birdie); }
+  .badge.unpaid { background: rgba(217,83,79,0.15); color: var(--double); }
   .badge.open { background: rgba(255,107,53,0.15); color: var(--accent); }
   .badge.registration_open { background: rgba(79,191,130,0.15); color: var(--birdie); }
   .badge.live { background: rgba(255,107,53,0.15); color: var(--accent); }
@@ -89,6 +90,15 @@
       <button class="btn secondary full" id="regCancel">Loobu</button>
       <button class="btn full" id="regConfirm">Kinnita registreerimine</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="guideModal">
+  <div class="modal-sheet">
+    <h3>📋 Juhend</h3>
+    <div id="guideModalText" style="font-size:14px; color:var(--ink-dim); margin-top:8px; white-space:pre-line; max-height:50vh; overflow-y:auto;"></div>
+    <div id="guideModalFileWrap" style="margin-top:12px;"></div>
+    <button class="btn secondary full" id="guideModalClose" style="margin-top:16px;">Sulge</button>
   </div>
 </div>
 
@@ -531,16 +541,33 @@ function renderDashboard() {
   document.querySelectorAll('[data-register]').forEach((btn) => {
     btn.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); openRegisterModal(btn.dataset.register, btn.dataset.name); };
   });
+  document.querySelectorAll('[data-guide]').forEach((btn) => {
+    btn.onclick = () => {
+      const text = btn.dataset.guideText;
+      const fileUrl = btn.dataset.guideFileUrl;
+      const fileName = btn.dataset.guideFileName;
+      document.getElementById('guideModalText').textContent = text || '';
+      const fileWrap = document.getElementById('guideModalFileWrap');
+      fileWrap.innerHTML = fileUrl
+        ? `<a href="${fileUrl}" target="_blank" rel="noopener" class="btn full" style="text-decoration:none; display:flex; align-items:center; justify-content:center;">📎 Ava dokument${fileName ? ': ' + esc(fileName) : ''}</a>`
+        : '';
+      document.getElementById('guideModal').classList.add('show');
+    };
+  });
 
   maybeAutoOpenJoinEvent();
 }
 
 function rowUpcoming(r) {
+  const hasGuide = r.guide_text || r.guide_file_url;
   return `<div class="event-row" style="align-items:center;">
     <div><div class="event-name">${esc(r.event_name)}</div><div class="event-meta">${fmtDate(r.start_date)} · ${esc(r.division_name)}</div></div>
     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-      <span class="badge ${r.paid_at ? 'confirmed' : 'registered'}">${r.paid_at ? 'KINNITATUD' : 'REGISTREERITUD'}</span>
+      ${r.paid_at
+        ? `<span class="badge confirmed">KINNITATUD</span>`
+        : `<span class="badge registered">REGISTREERITUD</span><span class="badge unpaid">KINNITAMATA</span>`}
       ${!r.paid_at && r.payment_link ? `<a href="${esc(/^https?:\/\//i.test(r.payment_link) ? r.payment_link : 'https://' + r.payment_link)}" target="_blank" rel="noopener" class="btn small" style="text-decoration:none; display:flex; align-items:center; white-space:nowrap; background:var(--birdie);">💳 Maksa</a>` : ''}
+      ${hasGuide ? `<span data-guide="${r.event_id}" data-guide-text="${esc(r.guide_text || '')}" data-guide-file-url="${esc(r.guide_file_url || '')}" data-guide-file-name="${esc(r.guide_file_name || '')}" class="btn small secondary" style="cursor:pointer; white-space:nowrap;">📋 Juhend</span>` : ''}
       <a href="/event?slug=${r.slug}" class="btn small secondary" style="text-decoration:none; display:flex; align-items:center; white-space:nowrap;">Vali pool</a>
       <a href="/event?slug=${r.slug}" class="btn small" style="text-decoration:none; display:flex; align-items:center; white-space:nowrap;">Märgi →</a>
     </div>
@@ -584,6 +611,7 @@ async function openRegisterModal(eventId, eventName) {
   regModal.classList.add('show');
 }
 document.getElementById('regCancel').onclick = () => regModal.classList.remove('show');
+document.getElementById('guideModalClose').onclick = () => document.getElementById('guideModal').classList.remove('show');
 document.getElementById('regConfirm').onclick = async () => {
   try {
     const res = await fetch(`/api/registrations/${regEventId}`, {
