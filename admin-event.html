@@ -218,10 +218,24 @@ async function renderAnnouncements(el) {
       ${announcements.length > 0 ? `
         <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line);">
           <div style="font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px;">Varasemad teated</div>
-          ${announcements.map((a) => `<div style="font-size:12.5px; color:var(--ink-dim); padding:5px 0;">${new Date(a.created_at).toLocaleTimeString('et-EE')} — ${a.message}</div>`).join('')}
+          ${announcements.map((a) => `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; font-size:12.5px; color:var(--ink-dim); padding:5px 0;">
+              <span>${new Date(a.created_at).toLocaleTimeString('et-EE')} — ${a.message}</span>
+              <span data-del-announce="${a.id}" title="Kustuta teade" style="cursor:pointer; color:var(--double); flex-shrink:0;">✕</span>
+            </div>`).join('')}
         </div>` : ''}
     </div>
   `;
+  document.querySelectorAll('[data-del-announce]').forEach((x) => {
+    x.onclick = async () => {
+      const ok = confirm('Kustutada see teade? Kui see on veel kellegi scorecardil hüpikuna nähtaval, jääb see nähtavaks, aga edaspidi seda enam ei näidata.');
+      if (!ok) return;
+      try {
+        await api(`/api/admin/announcements/${x.dataset.delAnnounce}`, { method: 'DELETE' });
+        renderTab();
+      } catch (e) { alert('Viga: ' + e.message); }
+    };
+  });
   document.getElementById('sendAnnounceBtn').onclick = async () => {
     const text = document.getElementById('announceText').value.trim();
     const statusEl = document.getElementById('announceStatus');

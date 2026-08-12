@@ -36,4 +36,14 @@ router.get('/:eventId', asyncHandler(async (req, res) => {
     res.json({ announcements: rows });
 }));
 
+// ---------------------------------------------------------------------------
+// DELETE /api/admin/announcements/:id
+// Kustuta vana teade (nt kui oht on möödas ja see enam ei kehti).
+// ---------------------------------------------------------------------------
+router.delete('/:id', asyncHandler(async (req, res) => {
+    const { rowCount } = await pool.query('DELETE FROM announcements WHERE id = $1', [req.params.id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'Teadet ei leitud.' });
+    res.json({ success: true });
+}));
+
 module.exports = router;
