@@ -174,6 +174,7 @@ function render() {
       ${tabBtn('rounds', 'Rajad & Poolid')}
       ${tabBtn('conflicts', 'Konfliktid')}
       ${tabBtn('announcements', 'Teated')}
+      ${tabBtn('jokes', 'Anekdoodid')}
     </div>
     <div id="tabContent"></div>
   `;
@@ -195,6 +196,7 @@ function renderTab() {
   if (state.activeTab === 'rounds') return renderRounds(el);
   if (state.activeTab === 'conflicts') return renderConflicts(el);
   if (state.activeTab === 'announcements') return renderAnnouncements(el);
+  if (state.activeTab === 'jokes') return renderJokes(el);
 }
 
 // ---------------------------------------------------------------------------
@@ -255,10 +257,10 @@ async function renderAnnouncements(el) {
 }
 
 // ---------------------------------------------------------------------------
-// OVERVIEW: status, divisions, parks
+// ANEKDOODID (jokes) - eraldi tab, endine osa "Ülevaade" alt
 // ---------------------------------------------------------------------------
-async function renderOverview(el) {
-  const statuses = ['draft','registration_open','registration_closed','live','finished','archived'];
+async function renderJokes(el) {
+  el.innerHTML = `<div class="card">Laen...</div>`;
   let jokes = [];
   try {
     const jokeData = await api(`/api/admin/jokes?eventId=${eventId}`);
@@ -266,31 +268,6 @@ async function renderOverview(el) {
   } catch (e) { /* pole hullu, näita lihtsalt tühja nimekirja */ }
 
   el.innerHTML = `
-    <div class="card">
-      <h3>Staatus</h3>
-      <select id="statusSelect">${statuses.map((s) => `<option value="${s}" ${s===state.event.status?'selected':''}>${s}</option>`).join('')}</select>
-      <button class="btn full" id="saveStatus">Salvesta staatus</button>
-      <div class="ok-msg" id="statusMsg"></div>
-    </div>
-
-    <div class="card">
-      <h3>Divisjonid</h3>
-      <div class="chip-list">${state.divisions.map((d) => `<div class="chip">${d.name}<span class="x" data-del-div="${d.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
-      <div class="row2" style="margin-top:12px;">
-        <input id="newDivName" placeholder="nt MPO">
-        <button class="btn" id="addDiv">Lisa divisjon</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Pargid / Sektorid</h3>
-      <div class="chip-list">${state.parks.map((p) => `<div class="chip">${p.name}<span class="x" data-del-park="${p.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
-      <div class="row2" style="margin-top:12px;">
-        <input id="newParkName" placeholder="nt Anne kanal">
-        <button class="btn" id="addPark">Lisa park</button>
-      </div>
-    </div>
-
     <div class="card">
       <h3>😄 Anekdoodi-mallid</h3>
       <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-6px;">
@@ -323,25 +300,6 @@ async function renderOverview(el) {
       </div>
     </div>
   `;
-  document.getElementById('saveStatus').onclick = async () => {
-    await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ status: document.getElementById('statusSelect').value }) });
-    document.getElementById('statusMsg').textContent = '✓ Salvestatud';
-    loadEvent();
-  };
-  document.getElementById('addDiv').onclick = async () => {
-    const name = document.getElementById('newDivName').value;
-    if (!name) return;
-    await api(`/api/admin/events/${eventId}/divisions`, { method: 'POST', body: JSON.stringify({ name, sortOrder: state.divisions.length }) });
-    loadEvent();
-  };
-  document.getElementById('addPark').onclick = async () => {
-    const name = document.getElementById('newParkName').value;
-    if (!name) return;
-    await api(`/api/admin/events/${eventId}/parks`, { method: 'POST', body: JSON.stringify({ name, sortOrder: state.parks.length }) });
-    loadEvent();
-  };
-  document.querySelectorAll('[data-del-div]').forEach((x) => x.onclick = async () => { await api(`/api/admin/events/divisions/${x.dataset.delDiv}`, { method: 'DELETE' }); loadEvent(); });
-  document.querySelectorAll('[data-del-park]').forEach((x) => x.onclick = async () => { await api(`/api/admin/events/parks/${x.dataset.delPark}`, { method: 'DELETE' }); loadEvent(); });
   document.getElementById('addJokeBtn').onclick = async () => {
     const text = document.getElementById('newJokeText').value.trim();
     const holeNumber = document.getElementById('newJokeHole').value;
@@ -362,6 +320,59 @@ async function renderOverview(el) {
   document.querySelectorAll('[data-reset-joke]').forEach((el) => {
     el.onclick = async () => { await api(`/api/admin/jokes/${el.dataset.resetJoke}/reset`, { method: 'POST' }); renderTab(); };
   });
+}
+
+// ---------------------------------------------------------------------------
+// OVERVIEW: status, divisions, parks
+// ---------------------------------------------------------------------------
+async function renderOverview(el) {
+  const statuses = ['draft','registration_open','registration_closed','live','finished','archived'];
+
+  el.innerHTML = `
+    <div class="card">
+      <h3>Staatus</h3>
+      <select id="statusSelect">${statuses.map((s) => `<option value="${s}" ${s===state.event.status?'selected':''}>${s}</option>`).join('')}</select>
+      <button class="btn full" id="saveStatus">Salvesta staatus</button>
+      <div class="ok-msg" id="statusMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3>Divisjonid</h3>
+      <div class="chip-list">${state.divisions.map((d) => `<div class="chip">${d.name}<span class="x" data-del-div="${d.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
+      <div class="row2" style="margin-top:12px;">
+        <input id="newDivName" placeholder="nt MPO">
+        <button class="btn" id="addDiv">Lisa divisjon</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Pargid / Sektorid</h3>
+      <div class="chip-list">${state.parks.map((p) => `<div class="chip">${p.name}<span class="x" data-del-park="${p.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
+      <div class="row2" style="margin-top:12px;">
+        <input id="newParkName" placeholder="nt Anne kanal">
+        <button class="btn" id="addPark">Lisa park</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('saveStatus').onclick = async () => {
+    await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ status: document.getElementById('statusSelect').value }) });
+    document.getElementById('statusMsg').textContent = '✓ Salvestatud';
+    loadEvent();
+  };
+  document.getElementById('addDiv').onclick = async () => {
+    const name = document.getElementById('newDivName').value;
+    if (!name) return;
+    await api(`/api/admin/events/${eventId}/divisions`, { method: 'POST', body: JSON.stringify({ name, sortOrder: state.divisions.length }) });
+    loadEvent();
+  };
+  document.getElementById('addPark').onclick = async () => {
+    const name = document.getElementById('newParkName').value;
+    if (!name) return;
+    await api(`/api/admin/events/${eventId}/parks`, { method: 'POST', body: JSON.stringify({ name, sortOrder: state.parks.length }) });
+    loadEvent();
+  };
+  document.querySelectorAll('[data-del-div]').forEach((x) => x.onclick = async () => { await api(`/api/admin/events/divisions/${x.dataset.delDiv}`, { method: 'DELETE' }); loadEvent(); });
+  document.querySelectorAll('[data-del-park]').forEach((x) => x.onclick = async () => { await api(`/api/admin/events/parks/${x.dataset.delPark}`, { method: 'DELETE' }); loadEvent(); });
 }
 
 // ---------------------------------------------------------------------------
