@@ -390,6 +390,7 @@ async function renderRegistrations(el) {
             <td style="white-space:nowrap;">
               ${r.status !== 'confirmed' ? `<button class="btn small" data-confirm="${r.id}">Kinnita</button>` : ''}
               <button class="btn small secondary" data-reset-pin="${r.player_id}" data-player-name="${r.first_name} ${r.last_name}" style="margin-left:4px;">Lähtesta PIN</button>
+              <span data-remove-reg="${r.id}" data-reg-name="${r.first_name} ${r.last_name}" style="cursor:pointer; color:var(--double); font-size:11px; margin-left:8px; white-space:nowrap;">Eemalda</span>
             </td>
           </tr>`).join('')}
       </table>`}
@@ -422,6 +423,16 @@ async function renderRegistrations(el) {
   });
   const dismissBtn = document.getElementById('dismissPinMsg');
   if (dismissBtn) dismissBtn.onclick = () => { resetPinMessage = null; renderTab(); };
+  document.querySelectorAll('[data-remove-reg]').forEach((el) => {
+    el.onclick = async () => {
+      const ok = confirm(`Kindel, et tahad eemaldada "${el.dataset.regName}" registreerimise?\n\nSee kustutab tema registreerimise ja pooli-valiku selle võistluse jaoks jäädavalt. Seda ei saa tagasi võtta.`);
+      if (!ok) return;
+      try {
+        await api(`/api/admin/registrations/${el.dataset.removeReg}`, { method: 'DELETE' });
+        renderTab();
+      } catch (e) { alert('Viga: ' + e.message); }
+    };
+  });
 
   let selectedExistingPlayerId = null;
   const apFirstInput = document.getElementById('apFirst');

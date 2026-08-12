@@ -122,4 +122,17 @@ router.post('/add-player', asyncHandler(async (req, res) => {
     }
 }));
 
+// ---------------------------------------------------------------------------
+// DELETE /api/admin/registrations/:id
+// Admin eemaldab mängija registreerimise täielikult (nt registreeris kogemata
+// vale divisjoni, dubleeris end, või loobus telefonitsi). Puhastab ka
+// pool_players (teadaolev konks: registration_id ei kaskaadi kustutamisel).
+// ---------------------------------------------------------------------------
+router.delete('/:id', asyncHandler(async (req, res) => {
+    await pool.query('DELETE FROM pool_players WHERE registration_id = $1', [req.params.id]);
+    const { rows } = await pool.query('DELETE FROM registrations WHERE id = $1 RETURNING id', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Registreerimist ei leitud.' });
+    res.json({ success: true });
+}));
+
 module.exports = router;
