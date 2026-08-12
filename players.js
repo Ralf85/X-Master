@@ -27,7 +27,7 @@ function publicPlayer(row) {
 // Punkt 3: mängija konto loomine ühe korra
 // ---------------------------------------------------------------------------
 router.post('/register', asyncHandler(async (req, res) => {
-    const { firstName, lastName, pin, pinConfirm, pdgaNumber, country, email, phone } = req.body;
+    const { firstName, lastName, pin, pinConfirm, pdgaNumber, country, email, phone, birthDate, gender } = req.body;
 
     if (!firstName || !lastName) {
         return res.status(400).json({ error: 'Eesnimi ja perekonnanimi on kohustuslikud.' });
@@ -44,15 +44,21 @@ router.post('/register', asyncHandler(async (req, res) => {
     if (pin !== pinConfirm) {
         return res.status(400).json({ error: 'PIN-koodid ei kattu.' });
     }
+    if (!birthDate) {
+        return res.status(400).json({ error: 'Sünniaeg on kohustuslik.' });
+    }
+    if (!gender || !['M', 'N'].includes(gender)) {
+        return res.status(400).json({ error: 'Sugu on kohustuslik (mees/naine).' });
+    }
 
     const pinHash = await hashPin(pin);
 
     const { rows } = await pool.query(
         `INSERT INTO players
-            (player_number, first_name, last_name, pin_hash, pdga_number, country, email, phone)
-         VALUES (nextval('player_number_seq'), $1, $2, $3, $4, $5, $6, $7)
+            (player_number, first_name, last_name, pin_hash, pdga_number, country, email, phone, birth_date, gender)
+         VALUES (nextval('player_number_seq'), $1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
-        [firstName, lastName, pinHash, pdgaNumber || null, country || null, email || null, phone || null]
+        [firstName, lastName, pinHash, pdgaNumber || null, country || null, email || null, phone || null, birthDate, gender]
     );
 
     const player = rows[0];
@@ -151,13 +157,16 @@ router.get('/me', playerAuth, asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 router.patch('/me', playerAuth, asyncHandler(async (req, res) => {
     const { firstName, lastName, phone, email, country, pdgaNumber, profileImageUrl,
-            wantsEventNotifications, wantsMarketingNotifications } = req.body;
+            wantsEventNotifications, wantsMarketingNotifications, birthDate, gender } = req.body;
 
     if (firstName !== undefined && !firstName.trim()) {
         return res.status(400).json({ error: 'Eesnimi ei tohi olla tühi.' });
     }
     if (lastName !== undefined && !lastName.trim()) {
         return res.status(400).json({ error: 'Perekonnanimi ei tohi olla tühi.' });
+    }
+    if (gender !== undefined && gender !== null && !['M', 'N'].includes(gender)) {
+        return res.status(400).json({ error: 'Sugu peab olema M või N.' });
     }
 
     const { rows } = await pool.query(
@@ -170,11 +179,13 @@ router.patch('/me', playerAuth, asyncHandler(async (req, res) => {
             pdga_number = COALESCE($6, pdga_number),
             profile_image_url = COALESCE($7, profile_image_url),
             wants_event_notifications = COALESCE($8, wants_event_notifications),
-            wants_marketing_notifications = COALESCE($9, wants_marketing_notifications)
-         WHERE id = $10
+            wants_marketing_notifications = COALESCE($9, wants_marketing_notifications),
+            birth_date = COALESCE($10, birth_date),
+            gender = COALESCE($11, gender)
+         WHERE id = $12
          RETURNING *`,
         [firstName, lastName, phone, email, country, pdgaNumber, profileImageUrl,
-         wantsEventNotifications, wantsMarketingNotifications, req.player.id]
+         wantsEventNotifications, wantsMarketingNotifications, birthDate, gender, req.player.id]
     );
 
     res.json({ player: publicPlayer(rows[0]) });

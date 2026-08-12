@@ -27,7 +27,17 @@ router.post('/', asyncHandler(async (req, res) => {
          registrationEnd || null, registrationLimit || null, logoUrl || null,
          JSON.stringify(brandingTheme || {}), req.admin.id]
     );
-    res.status(201).json({ event: rows[0] });
+    const event = rows[0];
+
+    // Iga uus võistlus saab kohe kaks divisjoni valmis (Mehed/Naised), et
+    // registreerimisel saaks mängija soo põhjal automaatselt siduda.
+    await pool.query(
+        `INSERT INTO divisions (event_id, name, gender, sort_order) VALUES
+            ($1, 'Mehed', 'M', 0), ($1, 'Naised', 'N', 1)`,
+        [event.id]
+    );
+
+    res.status(201).json({ event });
 }));
 
 router.get('/', asyncHandler(async (req, res) => {

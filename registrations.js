@@ -12,11 +12,6 @@ router.use(playerAuth);
 // uuesti ei küsita (see nõue eemaldati).
 // ---------------------------------------------------------------------------
 router.post('/:eventId', asyncHandler(async (req, res) => {
-    const { divisionId } = req.body;
-    if (!divisionId) {
-        return res.status(400).json({ error: 'divisionId on kohustuslik.' });
-    }
-
     const { rows: eventRows } = await pool.query('SELECT * FROM events WHERE id = $1', [req.params.eventId]);
     const event = eventRows[0];
     if (!event) return res.status(404).json({ error: 'Võistlust ei leitud.' });
@@ -25,6 +20,26 @@ router.post('/:eventId', asyncHandler(async (req, res) => {
     }
     if (event.registration_end && new Date() > new Date(event.registration_end)) {
         return res.status(400).json({ error: 'Registreerimise tähtaeg on möödas.' });
+    }
+
+    // Divisjon määratakse automaatselt mängija soo järgi (Mehed/Naised).
+    // Kui divisionId on erandkorras käsitsi kaasa antud (nt vanem integratsioon),
+    // kasutatakse seda; muidu otsitakse event'i divisjon, mille gender kattub.
+    let { divisionId } = req.body;
+    if (!divisionId) {
+        const { rows: playerRows } = await pool.query('SELECT gender FROM players WHERE id = $1', [req.player.id]);
+        const gender = playerRows[0]?.gender;
+        if (!gender) {
+            return res.status(400).json({ error: 'Sinu profiilil pole sugu määratud - palun täienda profiili (Minu konto), siis saad registreeruda.' });
+        }
+        const { rows: divRows } = await pool.query(
+            'SELECT id FROM divisions WHERE event_id = $1 AND gender = $2',
+            [req.params.eventId, gender]
+        );
+        if (!divRows[0]) {
+            return res.status(400).json({ error: 'Sellel võistlusel pole veel sinu soole vastavat divisjoni. Võta ühendust korraldajaga.' });
+        }
+        divisionId = divRows[0].id;
     }
 
     if (event.registration_limit) {

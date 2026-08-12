@@ -83,8 +83,7 @@
 <div class="modal-backdrop" id="regModal">
   <div class="modal-sheet">
     <h3 id="regEventName"></h3>
-    <label>Divisjon</label>
-    <select id="regDivision"></select>
+    <div id="regDivisionInfo" style="font-size:13px; color:var(--ink-dim); margin-top:4px;"></div>
     <div class="error-msg" id="regError"></div>
     <div style="display:flex; gap:10px; margin-top:16px;">
       <button class="btn secondary full" id="regCancel">Loobu</button>
@@ -160,6 +159,13 @@ function renderAuth(mode, errorMsg) {
     formEl.innerHTML = `
       <label>Eesnimi</label><input id="firstName">
       <label>Perekonnanimi</label><input id="lastName">
+      <label>Sünniaeg</label><input id="regBirthDate" type="date">
+      <label>Sugu</label>
+      <select id="regGender">
+        <option value="">Vali...</option>
+        <option value="M">Mees</option>
+        <option value="N">Naine</option>
+      </select>
       <label>PIN (4-6 numbrit)</label><input id="newPin" type="password" inputmode="numeric">
       <label>Korda PIN-i</label><input id="newPinConfirm" type="password" inputmode="numeric">
       <label>Email</label><input id="regEmail" type="email" required>
@@ -189,6 +195,10 @@ async function doLogin() {
 async function doRegister() {
   const email = document.getElementById('regEmail').value.trim();
   if (!email) return renderAuth('register', 'Email on kohustuslik.');
+  const birthDate = document.getElementById('regBirthDate').value;
+  const gender = document.getElementById('regGender').value;
+  if (!birthDate) return renderAuth('register', 'Sünniaeg on kohustuslik.');
+  if (!gender) return renderAuth('register', 'Sugu on kohustuslik.');
   const body = {
     firstName: document.getElementById('firstName').value,
     lastName: document.getElementById('lastName').value,
@@ -196,6 +206,8 @@ async function doRegister() {
     pinConfirm: document.getElementById('newPinConfirm').value,
     email,
     phone: document.getElementById('regPhone').value || undefined,
+    birthDate,
+    gender,
   };
   try {
     const res = await fetch('/api/players/register', {
@@ -422,21 +434,19 @@ async function openRegisterModal(eventId, eventName) {
   document.getElementById('regEventName').textContent = eventName;
   document.getElementById('regError').textContent = '';
 
-  const event = state.events.find((e) => String(e.id) === String(eventId));
-  const res = await fetch(`/api/events/${event.slug}`);
-  const data = await res.json();
-  const sel = document.getElementById('regDivision');
-  sel.innerHTML = data.divisions.map((d) => `<option value="${d.id}">${d.name}</option>`).join('');
+  const genderLabel = state.player.gender === 'M' ? 'Mehed' : state.player.gender === 'N' ? 'Naised' : null;
+  document.getElementById('regDivisionInfo').textContent = genderLabel
+    ? `Registreerud divisjoni: ${genderLabel}`
+    : 'Sinu profiilil pole sugu määratud, seega ei saa divisjoni automaatselt valida. Täienda profiili ja proovi uuesti.';
 
   regModal.classList.add('show');
 }
 document.getElementById('regCancel').onclick = () => regModal.classList.remove('show');
 document.getElementById('regConfirm').onclick = async () => {
-  const divisionId = document.getElementById('regDivision').value;
   try {
     const res = await fetch(`/api/registrations/${regEventId}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-      body: JSON.stringify({ divisionId: Number(divisionId) }),
+      body: JSON.stringify({}),
     });
     const data = await res.json();
     if (!res.ok) { document.getElementById('regError').textContent = data.error; return; }
