@@ -556,7 +556,8 @@ function isRoundFullyComplete() {
 function renderHole() {
   const hole = state.playOrder[state.holeIdx];
   const complete = state.playerIdx >= state.players.length;
-  const roundFinished = complete && isRoundFullyComplete();
+  const isLastHoleInOrder = state.holeIdx === state.playOrder.length - 1;
+  const roundFinished = complete && isLastHoleInOrder && isRoundFullyComplete();
 
   let dots = state.players.map((p, i) => {
     const has = state.scores[scoreKey(p.player_id, hole.id)];
