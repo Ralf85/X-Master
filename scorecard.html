@@ -694,34 +694,36 @@ async function loadJokeCorner() {
 }
 
 // ---------------------------------------------------------------------------
-// Igal tulemuse tüübil oma heli - genereeritud Web Audio API-ga, ei vaja
-// välist helifaili. Vaikselt ignoreerib, kui heli pole saadaval.
+// Tulemuse häälega kinnitamine - päris salvestatud helifailid (mitte
+// brauseri kõnesüntees, mis ei oska väljamõeldud sõnu hästi hääldada).
+// Aitab vältida pettust, kus märkija ütleb valjult teistsuguse tulemuse
+// kui tegelikult sisestab.
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-// Tulemuse häälega kinnitamine - kasutab brauseri sisseehitatud
-// kõnesüntesaatorit (Web Speech API), ei vaja ühtegi allalaadimist ega
-// helifaili. Aitab vältida pettust, kus märkija ütleb valjult teistsuguse
-// tulemuse kui tegelikult sisestab.
-// ---------------------------------------------------------------------------
-const SCORE_VOICE_TEXT = {
-  1: 'Hollar!',
-  2: 'Böördi!',
-  3: 'Parr!',
-  4: 'Bougy!',
-  5: 'Tupla!',
+const SCORE_VOICE_FILES = {
+  1: '/sounds/1-holar.mp3',
+  2: '/sounds/2-birdie.mp3',
+  3: '/sounds/3-par.mp3',
+  4: '/sounds/4-bougy.mp3',
+  5: '/sounds/5-tupla.mp3',
+  '6+': '/sounds/6-oeh.mp3',
 };
+const scoreVoiceAudio = {};
+function preloadScoreVoices() {
+  Object.entries(SCORE_VOICE_FILES).forEach(([key, url]) => {
+    const audio = new Audio(url);
+    audio.preload = 'auto';
+    scoreVoiceAudio[key] = audio;
+  });
+}
+preloadScoreVoices();
 function speakScore(strokes) {
   try {
-    if (!window.speechSynthesis) return;
-    const text = strokes >= 6 ? 'Oeh!' : (SCORE_VOICE_TEXT[strokes] || String(strokes));
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'et-EE';
-    utter.rate = 1.0;
-    utter.pitch = 1.0;
-    utter.volume = 1.0;
-    window.speechSynthesis.cancel(); // katkesta eelmine, kui see veel räägib
-    window.speechSynthesis.speak(utter);
-  } catch (e) { /* kõnesüntees pole saadaval, ignoreeri */ }
+    const key = strokes >= 6 ? '6+' : strokes;
+    const audio = scoreVoiceAudio[key];
+    if (!audio) return;
+    audio.currentTime = 0;
+    audio.play().catch(() => { /* brauser blokeeris - ignoreeri vaikselt */ });
+  } catch (e) { /* heli pole saadaval, ignoreeri */ }
 }
 
 let audioCtx = null;

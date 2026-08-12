@@ -85,6 +85,8 @@ app.get('/control-center', (req, res) => {
     res.sendFile(path.join(__dirname, 'control-center.html'));
 });
 
+app.use('/sounds', express.static(path.join(__dirname, 'sounds')));
+
 app.use('/api/health', healthRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/admin', adminRoutes);
