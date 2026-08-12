@@ -50,6 +50,33 @@
 <body>
 <div class="wrap" id="app"></div>
 <script>
+// ---------------------------------------------------------------------------
+// Teema valik (RAL värvid admin-vaate tausta jaoks)
+// ---------------------------------------------------------------------------
+const ADMIN_THEMES = {
+  default: { '--bg-deep': '#2a3733', '--bg-panel': '#33423d', '--bg-panel-2': '#3d4d47', '--ink': '#f0f4f2', '--ink-dim': '#b8c9c2', '--ink-faint': '#8aa198', '--line': 'rgba(240, 244, 242, 0.12)', '--birdie': '#5fcf8f', '--bogey': '#f0a94e', '--double': '#e2635e' },
+  ral7040: { '--bg-deep': '#9DA3A7', '--bg-panel': '#ffffff', '--bg-panel-2': '#e4e6e7', '--ink': '#1e2224', '--ink-dim': '#4a5153', '--ink-faint': '#7c8386', '--line': 'rgba(30, 34, 36, 0.14)', '--birdie': '#2e9d5c', '--bogey': '#c97a1f', '--double': '#c94444' },
+  ral6027: { '--bg-deep': '#7EBAB5', '--bg-panel': '#ffffff', '--bg-panel-2': '#dceeec', '--ink': '#16302c', '--ink-dim': '#3f615c', '--ink-faint': '#6f8f8a', '--line': 'rgba(22, 48, 44, 0.14)', '--birdie': '#2e9d5c', '--bogey': '#c97a1f', '--double': '#c94444' },
+};
+function applyAdminTheme(name) {
+  const theme = ADMIN_THEMES[name] || ADMIN_THEMES.default;
+  Object.entries(theme).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+  localStorage.setItem('dg_admin_theme', name);
+}
+function themeSelectorHtml() {
+  const current = localStorage.getItem('dg_admin_theme') || 'default';
+  return `<select id="themeSelector" style="width:auto; padding:5px 8px; font-size:11.5px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--ink); border-radius:6px;">
+    <option value="default" ${current === 'default' ? 'selected' : ''}>Vaikimisi</option>
+    <option value="ral7040" ${current === 'ral7040' ? 'selected' : ''}>RAL 7040</option>
+    <option value="ral6027" ${current === 'ral6027' ? 'selected' : ''}>RAL 6027</option>
+  </select>`;
+}
+function wireThemeSelector() {
+  const el = document.getElementById('themeSelector');
+  if (el) el.onchange = (e) => applyAdminTheme(e.target.value);
+}
+applyAdminTheme(localStorage.getItem('dg_admin_theme') || 'default');
+
 const app = document.getElementById('app');
 let state = { token: localStorage.getItem('dg_admin_token'), events: [] };
 
@@ -123,7 +150,7 @@ async function loadEvents() {
 
 function renderEvents() {
   app.innerHTML = `
-    <div class="topbar"><h1>Võistlused</h1><div class="logout-link" id="logoutBtn">Logi välja</div></div>
+    <div class="topbar"><h1>Võistlused</h1><div style="display:flex; align-items:center; gap:12px;">${themeSelectorHtml()}<div class="logout-link" id="logoutBtn">Logi välja</div></div></div>
     <div class="nav-links" style="display:flex; align-items:center; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
       <a href="/admin" style="color:var(--accent); text-decoration:none; font-size:13px; font-family:var(--font-display); font-weight:600;">Võistlused</a>
       <a href="/admin-users" style="color:var(--ink-dim); text-decoration:none; font-size:13px; font-family:var(--font-display); font-weight:600;">Kasutajad</a>
@@ -188,6 +215,7 @@ function renderEvents() {
     } catch (e) { document.getElementById('jokeError').textContent = 'Ühendus ebaõnnestus.'; }
   };
   document.getElementById('logoutBtn').onclick = logout;
+  wireThemeSelector();
   document.getElementById('createBtn').onclick = createEvent;
   document.getElementById('toggleCreateBtn').onclick = () => {
     const section = document.getElementById('createEventSection');
