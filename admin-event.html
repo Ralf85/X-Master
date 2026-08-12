@@ -134,7 +134,7 @@ let state = {
 };
 let resetPinMessage = null;
 let selectedRegIds = new Set();
-let regSortMode = 'registered_at';
+let regSortMode = 'name';
 
 document.getElementById('movePlayerClose').onclick = () => document.getElementById('movePlayerModal').classList.remove('show');
 document.getElementById('movePlayerModal').onclick = (e) => { if (e.target.id === 'movePlayerModal') e.currentTarget.classList.remove('show'); };
@@ -420,7 +420,10 @@ async function renderRegistrations(el) {
   el.innerHTML = `<div class="card">Laen...</div>`;
   const data = await api(`/api/admin/registrations/event/${eventId}`);
   state.registrations = data.registrations;
+  renderRegistrationsTable(el);
+}
 
+function renderRegistrationsTable(el) {
   const sorted = [...state.registrations].sort((a, b) => {
     if (regSortMode === 'name') {
       return (a.first_name + a.last_name).localeCompare(b.first_name + b.last_name, 'et');
@@ -445,8 +448,8 @@ async function renderRegistrations(el) {
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <h3 style="margin:0;">Registreerumised (${state.registrations.length})</h3>
         <select id="regSortSelect" style="width:auto;">
-          <option value="registered_at" ${regSortMode==='registered_at'?'selected':''}>Registreerimise aeg</option>
           <option value="name" ${regSortMode==='name'?'selected':''}>Nimi (A-Z)</option>
+          <option value="registered_at" ${regSortMode==='registered_at'?'selected':''}>Registreerimise aeg</option>
         </select>
       </div>
       ${resetPinMessage ? `<div style="background:rgba(79,191,130,0.1); border:1px solid var(--birdie); padding:12px; border-radius:8px; margin:14px 0; display:flex; justify-content:space-between; align-items:center;">
@@ -454,12 +457,15 @@ async function renderRegistrations(el) {
         <span id="dismissPinMsg" style="cursor:pointer; color:var(--ink-faint); margin-left:10px;">✕</span>
       </div>` : ''}
       ${state.registrations.length === 0 ? '<div class="empty-note">Registreerumisi pole veel.</div>' : `
-      <div style="display:flex; align-items:center; gap:10px; margin:12px 0;">
-        <button class="btn small secondary" id="bulkEmailBtn">📧 Saada meeldetuletus valitutele (${selectedRegIds.size})</button>
-        <span id="selectUnpaidLink" style="cursor:pointer; color:var(--ink-faint); font-size:12px; text-decoration:underline;">vali kõik maksmata</span>
+      <div style="margin:12px 0;">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <button class="btn small secondary" id="bulkEmailBtn">📧 Saada meeldetuletus valitutele (${selectedRegIds.size})</button>
+          <span id="selectUnpaidLink" style="cursor:pointer; color:var(--ink-faint); font-size:12px; text-decoration:underline;">vali kõik maksmata</span>
+        </div>
+        <textarea id="reminderMessageInput" placeholder="Meeldetuletuse lisatekst (valikuline) - nt kuupäev, mille eest palud makse teha, või muu oluline info. Kui tühjaks jätad, saadetakse vaikimisi tekst." style="width:100%; min-height:60px; margin-top:8px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:8px 10px; font-family:var(--font-body); font-size:13px; resize:vertical;"></textarea>
       </div>
       <table>
-        <tr><th><input type="checkbox" id="selectAllCheckbox"></th><th>Mängija</th><th>Divisjon</th><th>Staatus</th><th>Pank</th><th>Stebby</th><th></th></tr>
+        <tr><th><input type="checkbox" id="selectAllCheckbox" ${sorted.length > 0 && sorted.every((r) => selectedRegIds.has(r.id)) ? 'checked' : ''}></th><th>Mängija</th><th>Divisjon</th><th>Staatus</th><th>Pank</th><th>Stebby</th><th></th></tr>
         ${sorted.map((r) => `
           <tr>
             <td><input type="checkbox" class="regCheckbox" data-reg-id="${r.id}" ${selectedRegIds.has(r.id) ? 'checked' : ''}></td>
@@ -491,17 +497,17 @@ async function renderRegistrations(el) {
       <div class="error-msg" id="apError"></div>
     </div>
   `;
-  document.getElementById('regSortSelect').onchange = (e) => { regSortMode = e.target.value; renderTab(); };
+  document.getElementById('regSortSelect').onchange = (e) => { regSortMode = e.target.value; renderRegistrationsTable(el); };
   document.querySelectorAll('[data-confirm]').forEach((btn) => {
-    btn.onclick = async () => { await api(`/api/admin/registrations/${btn.dataset.confirm}`, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) }); renderTab(); };
+    btn.onclick = async () => { await api(`/api/admin/registrations/${btn.dataset.confirm}`, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) }); renderRegistrations(el); };
   });
-  document.querySelectorAll('[data-toggle-payment]').forEach((el) => {
-    el.onclick = async () => {
-      const nowPaid = el.dataset.paid !== 'true';
-      await api(`/api/admin/registrations/${el.dataset.togglePayment}/payment`, {
-        method: 'PATCH', body: JSON.stringify({ channel: el.dataset.channel, paid: nowPaid }),
+  document.querySelectorAll('[data-toggle-payment]').forEach((btn) => {
+    btn.onclick = async () => {
+      const nowPaid = btn.dataset.paid !== 'true';
+      await api(`/api/admin/registrations/${btn.dataset.togglePayment}/payment`, {
+        method: 'PATCH', body: JSON.stringify({ channel: btn.dataset.channel, paid: nowPaid }),
       });
-      renderTab();
+      renderRegistrations(el);
     };
   });
   const selectAllCb = document.getElementById('selectAllCheckbox');
@@ -509,14 +515,14 @@ async function renderRegistrations(el) {
     selectAllCb.onchange = () => {
       if (selectAllCb.checked) sorted.forEach((r) => selectedRegIds.add(r.id));
       else selectedRegIds.clear();
-      renderTab();
+      renderRegistrationsTable(el);
     };
   }
   document.querySelectorAll('.regCheckbox').forEach((cb) => {
     cb.onchange = () => {
       const id = Number(cb.dataset.regId);
       if (cb.checked) selectedRegIds.add(id); else selectedRegIds.delete(id);
-      renderTab();
+      renderRegistrationsTable(el);
     };
   });
   const selectUnpaidLink = document.getElementById('selectUnpaidLink');
@@ -524,34 +530,35 @@ async function renderRegistrations(el) {
     selectUnpaidLink.onclick = () => {
       selectedRegIds.clear();
       state.registrations.filter((r) => !r.bank_paid_at && !r.stebby_paid_at).forEach((r) => selectedRegIds.add(r.id));
-      renderTab();
+      renderRegistrationsTable(el);
     };
   }
   const bulkEmailBtn = document.getElementById('bulkEmailBtn');
   if (bulkEmailBtn) {
     bulkEmailBtn.onclick = async () => {
       if (selectedRegIds.size === 0) { alert('Vali vähemalt üks mängija.'); return; }
+      const customMessage = document.getElementById('reminderMessageInput').value.trim();
       const ok = confirm(`Saata makse-meeldetuletus emailiga ${selectedRegIds.size} mängijale?`);
       if (!ok) return;
       try {
         const result = await api('/api/admin/registrations/bulk-email', {
-          method: 'POST', body: JSON.stringify({ registrationIds: [...selectedRegIds] }),
+          method: 'POST', body: JSON.stringify({ registrationIds: [...selectedRegIds], customMessage }),
         });
-        alert(`Saadetud: ${result.sent}, vahele jäetud (email puudub v6i viga): ${result.skipped}`);
+        alert(`Saadetud: ${result.sent}, vahele jäetud (email puudub või viga): ${result.skipped}`);
         selectedRegIds.clear();
-        renderTab();
+        renderRegistrations(el);
       } catch (e) { alert('Viga: ' + e.message); }
     };
   }
   const dismissBtn = document.getElementById('dismissPinMsg');
-  if (dismissBtn) dismissBtn.onclick = () => { resetPinMessage = null; renderTab(); };
-  document.querySelectorAll('[data-remove-reg]').forEach((el) => {
-    el.onclick = async () => {
-      const ok = confirm(`Kindel, et tahad eemaldada "${el.dataset.regName}" registreerimise?\n\nSee kustutab tema registreerimise ja pooli-valiku selle võistluse jaoks jäädavalt. Seda ei saa tagasi võtta.`);
+  if (dismissBtn) dismissBtn.onclick = () => { resetPinMessage = null; renderRegistrationsTable(el); };
+  document.querySelectorAll('[data-remove-reg]').forEach((el2) => {
+    el2.onclick = async () => {
+      const ok = confirm(`Kindel, et tahad eemaldada "${el2.dataset.regName}" registreerimise?\n\nSee kustutab tema registreerimise ja pooli-valiku selle võistluse jaoks jäädavalt. Seda ei saa tagasi võtta.`);
       if (!ok) return;
       try {
-        await api(`/api/admin/registrations/${el.dataset.removeReg}`, { method: 'DELETE' });
-        renderTab();
+        await api(`/api/admin/registrations/${el2.dataset.removeReg}`, { method: 'DELETE' });
+        renderRegistrations(el);
       } catch (e) { alert('Viga: ' + e.message); }
     };
   });

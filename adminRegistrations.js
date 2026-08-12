@@ -64,7 +64,7 @@ router.patch('/:id/payment', asyncHandler(async (req, res) => {
 // Saadab makse-meeldetuletuse valitud registreerimiste mängijatele.
 // ---------------------------------------------------------------------------
 router.post('/bulk-email', asyncHandler(async (req, res) => {
-    const { registrationIds } = req.body;
+    const { registrationIds, customMessage } = req.body;
     if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
         return res.status(400).json({ error: 'registrationIds on kohustuslik ja peab olema mittetühi massiiv.' });
     }
@@ -82,7 +82,8 @@ router.post('/bulk-email', asyncHandler(async (req, res) => {
     for (const r of rows) {
         if (!r.email) { skipped++; continue; }
         const result = await sendPaymentReminderEmail({
-            to: r.email, playerName: r.first_name, eventName: r.event_name, paymentLink: r.payment_link,
+            to: r.email, playerName: r.first_name, eventName: r.event_name,
+            paymentLink: r.payment_link, customMessage: customMessage || null,
         });
         if (result.sent) sent++; else skipped++;
     }

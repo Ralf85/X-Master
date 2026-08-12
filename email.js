@@ -62,7 +62,7 @@ async function sendRecoveryEmail({ to, playerNumber, recoveryCode }) {
     }
 }
 
-async function sendPaymentReminderEmail({ to, playerName, eventName, paymentLink }) {
+async function sendPaymentReminderEmail({ to, playerName, eventName, paymentLink, customMessage }) {
     const client = getResendClient();
     if (!client) {
         console.log(`[PAYMENT REMINDER] (RESEND_API_KEY puudub, email ei saadetud) ${to} - ${eventName}`);
@@ -81,6 +81,7 @@ async function sendPaymentReminderEmail({ to, playerName, eventName, paymentLink
                     <h2 style="color: #16302c;">Meeldetuletus makse kohta</h2>
                     <p>Tere${playerName ? ', ' + playerName : ''}!</p>
                     <p>Sinu registreerimine võistlusele <strong>${eventName}</strong> ootab veel osalustasu tasumist.</p>
+                    ${customMessage ? `<p style="white-space: pre-line;">${customMessage}</p>` : ''}
                     ${paymentLink ? `<p><a href="${paymentLink}" style="display:inline-block; background:#ff6b35; color:#1a0e08; font-weight:700; padding:12px 20px; border-radius:8px; text-decoration:none; margin-top:10px;">Maksa siin</a></p>` : ''}
                     <p style="color: #6f8f8a; font-size: 13px; margin-top: 20px;">
                         Kui oled juba maksnud, võid selle kirja ignoreerida - korraldaja kinnitab makse peagi.
