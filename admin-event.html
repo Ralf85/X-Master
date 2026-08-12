@@ -343,11 +343,13 @@ async function renderOverview(el) {
 
     <div class="card">
       <h3>Divisjonid</h3>
-      <div class="chip-list">${state.divisions.map((d) => `<div class="chip">${esc(d.name)}<span class="x" data-del-div="${d.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
+      <div class="chip-list">${state.divisions.map((d) => `<div class="chip">${esc(d.name)}${d.gender ? ` <span style="opacity:0.6; font-size:11px;">(${d.gender === 'M' ? 'mehed' : 'naised'})</span>` : (d.name === 'Mehed' || d.name === 'Naised' ? ' <span style="color:var(--bogey); font-size:11px;">⚠ soo-märgend puudub</span>' : '')}<span class="x" data-del-div="${d.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
       <div class="row2" style="margin-top:12px;">
         <input id="newDivName" placeholder="nt MPO">
         <button class="btn" id="addDiv">Lisa divisjon</button>
       </div>
+      <button class="btn secondary" id="ensureGenderDivs" style="margin-top:10px; width:100%;">🔧 Tekita/paranda Mehed + Naised divisjonid</button>
+      <p style="color:var(--ink-faint); font-size:11.5px; margin-top:6px; margin-bottom:0;">Kasuta seda, kui mängijad ei saa registreeruda veaga "sinu soole vastavat divisjoni pole" - see loob puuduvad divisjonid või parandab olemasolevate Mehed/Naised divisjonide soo-märgendi.</p>
     </div>
 
     <div class="card">
@@ -377,6 +379,12 @@ async function renderOverview(el) {
     loadEvent();
   };
   document.querySelectorAll('[data-del-div]').forEach((x) => x.onclick = async () => { await api(`/api/admin/events/divisions/${x.dataset.delDiv}`, { method: 'DELETE' }); loadEvent(); });
+  document.getElementById('ensureGenderDivs').onclick = async () => {
+    try {
+      await api(`/api/admin/events/${eventId}/ensure-gender-divisions`, { method: 'POST' });
+      loadEvent();
+    } catch (e) { alert('Viga: ' + e.message); }
+  };
   document.querySelectorAll('[data-del-park]').forEach((x) => x.onclick = async () => { await api(`/api/admin/events/parks/${x.dataset.delPark}`, { method: 'DELETE' }); loadEvent(); });
 }
 

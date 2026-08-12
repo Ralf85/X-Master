@@ -137,19 +137,76 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 // DIVISIONS (punkt 50)
 // ---------------------------------------------------------------------------
 router.post('/:id/divisions', asyncHandler(async (req, res) => {
-    const { name, sortOrder } = req.body;
+    const { name, gender, sortOrder } = req.body;
     if (!name) return res.status(400).json({ error: 'name on kohustuslik.' });
+    if (gender !== undefined && gender !== null && !['M', 'N'].includes(gender)) {
+        return res.status(400).json({ error: 'gender peab olema M, N või tühi.' });
+    }
 
     const { rows } = await pool.query(
-        `INSERT INTO divisions (event_id, name, sort_order) VALUES ($1, $2, $3) RETURNING *`,
-        [req.params.id, name, sortOrder || 0]
+        `INSERT INTO divisions (event_id, name, gender, sort_order) VALUES ($1, $2, $3, $4) RETURNING *`,
+        [req.params.id, name, gender || null, sortOrder || 0]
     );
     res.status(201).json({ division: rows[0] });
+}));
+
+router.patch('/divisions/:divisionId', asyncHandler(async (req, res) => {
+    const { gender } = req.body;
+    if (gender !== undefined && gender !== null && !['M', 'N'].includes(gender)) {
+        return res.status(400).json({ error: 'gender peab olema M, N või tühi.' });
+    }
+    const { rows } = await pool.query(
+        'UPDATE divisions SET gender = $1 WHERE id = $2 RETURNING *',
+        [gender || null, req.params.divisionId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Divisjoni ei leitud.' });
+    res.json({ division: rows[0] });
 }));
 
 router.delete('/divisions/:divisionId', asyncHandler(async (req, res) => {
     await pool.query('DELETE FROM divisions WHERE id = $1', [req.params.divisionId]);
     res.json({ message: 'Divisjon kustutatud.' });
+}));
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/events/:id/ensure-gender-divisions
+// Kiirparandus: tagab, et sellel event'il on olemas soo-märgendiga
+// "Mehed" ja "Naised" divisjonid. Kui need juba nime järgi eksisteerivad
+// aga ilma soo-märgendita, lisatakse märgend; kui puuduvad täielikult,
+// luuakse need.
+// ---------------------------------------------------------------------------
+router.post('/:id/ensure-gender-divisions', asyncHandler(async (req, res) => {
+    const { rows: existing } = await pool.query(
+        'SELECT * FROM divisions WHERE event_id = $1', [req.params.id]
+    );
+
+    const hasMenTagged = existing.some((d) => d.gender === 'M');
+    const hasWomenTagged = existing.some((d) => d.gender === 'N');
+    const untaggedMen = existing.find((d) => d.name === 'Mehed' && !d.gender);
+    const untaggedWomen = existing.find((d) => d.name === 'Naised' && !d.gender);
+
+    if (untaggedMen) {
+        await pool.query('UPDATE divisions SET gender = $1 WHERE id = $2', ['M', untaggedMen.id]);
+    } else if (!hasMenTagged) {
+        await pool.query(
+            'INSERT INTO divisions (event_id, name, gender, sort_order) VALUES ($1, $2, $3, $4)',
+            [req.params.id, 'Mehed', 'M', existing.length]
+        );
+    }
+
+    if (untaggedWomen) {
+        await pool.query('UPDATE divisions SET gender = $1 WHERE id = $2', ['N', untaggedWomen.id]);
+    } else if (!hasWomenTagged) {
+        await pool.query(
+            'INSERT INTO divisions (event_id, name, gender, sort_order) VALUES ($1, $2, $3, $4)',
+            [req.params.id, 'Naised', 'N', existing.length + 1]
+        );
+    }
+
+    const { rows: finalDivisions } = await pool.query(
+        'SELECT * FROM divisions WHERE event_id = $1 ORDER BY sort_order', [req.params.id]
+    );
+    res.json({ divisions: finalDivisions });
 }));
 
 // ---------------------------------------------------------------------------
