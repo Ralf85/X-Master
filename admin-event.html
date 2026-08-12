@@ -428,12 +428,16 @@ async function renderRegistrations(el) {
       </div>` : ''}
       ${state.registrations.length === 0 ? '<div class="empty-note">Registreerumisi pole veel.</div>' : `
       <table>
-        <tr><th>Mängija</th><th>Divisjon</th><th>Staatus</th><th></th></tr>
+        <tr><th>Mängija</th><th>Divisjon</th><th>Staatus</th><th>Tasu</th><th></th></tr>
         ${state.registrations.map((r) => `
           <tr>
             <td>${esc(r.first_name)} ${esc(r.last_name)}<br><span style="color:var(--ink-faint);font-size:11px;">#${r.player_number}</span></td>
             <td>${r.division_name}</td>
-            <td><span class="status-pill ${r.status}">${r.status}</span></td>
+            <td><span class="status-pill ${r.status}">${r.status === 'confirmed' ? 'Kinnitatud' : r.status === 'registered' ? 'Registreeritud' : r.status}</span></td>
+            <td>
+              <span class="status-pill ${r.paid_at ? 'confirmed' : 'registered'}">${r.paid_at ? 'Makstud' : 'Maksmata'}</span>
+              <span data-toggle-paid="${r.id}" data-paid="${r.paid_at ? 'true' : 'false'}" style="cursor:pointer; color:${r.paid_at ? 'var(--double)' : 'var(--birdie)'}; font-size:11px; margin-left:6px; text-decoration:underline; white-space:nowrap;">${r.paid_at ? 'tühista' : 'märgi makstuks'}</span>
+            </td>
             <td style="white-space:nowrap;">
               ${r.status !== 'confirmed' ? `<button class="btn small" data-confirm="${r.id}">Kinnita</button>` : ''}
               <button class="btn small secondary" data-reset-pin="${r.player_id}" data-player-name="${esc(r.first_name)} ${esc(r.last_name)}" style="margin-left:4px;">Lähtesta PIN</button>
@@ -460,6 +464,13 @@ async function renderRegistrations(el) {
   `;
   document.querySelectorAll('[data-confirm]').forEach((btn) => {
     btn.onclick = async () => { await api(`/api/admin/registrations/${btn.dataset.confirm}`, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) }); renderTab(); };
+  });
+  document.querySelectorAll('[data-toggle-paid]').forEach((el) => {
+    el.onclick = async () => {
+      const nowPaid = el.dataset.paid !== 'true';
+      await api(`/api/admin/registrations/${el.dataset.togglePaid}/paid`, { method: 'PATCH', body: JSON.stringify({ paid: nowPaid }) });
+      renderTab();
+    };
   });
   document.querySelectorAll('[data-reset-pin]').forEach((btn) => {
     btn.onclick = async () => {

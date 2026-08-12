@@ -14,7 +14,7 @@ router.get('/event/:eventId', asyncHandler(async (req, res) => {
     const { status } = req.query;
     const params = [req.params.eventId];
     let query = `
-        SELECT r.id, r.status, r.registered_at, r.confirmed_at,
+        SELECT r.id, r.status, r.registered_at, r.confirmed_at, r.paid_at,
                p.id AS player_id, p.player_number, p.first_name, p.last_name, p.email, p.phone,
                d.name AS division_name
         FROM registrations r
@@ -30,6 +30,21 @@ router.get('/event/:eventId', asyncHandler(async (req, res) => {
 
     const { rows } = await pool.query(query, params);
     res.json({ registrations: rows });
+}));
+
+// ---------------------------------------------------------------------------
+// PATCH /api/admin/registrations/:id/paid
+// Tasu märkimine/tühistamine - eraldi väli registreerimise staatusest.
+// Mängija dashboard näitab "Kinnitatud" ainult siis, kui paid_at on täidetud.
+// ---------------------------------------------------------------------------
+router.patch('/:id/paid', asyncHandler(async (req, res) => {
+    const { paid } = req.body;
+    const { rows } = await pool.query(
+        `UPDATE registrations SET paid_at = ${paid ? 'now()' : 'NULL'} WHERE id = $1 RETURNING *`,
+        [req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Registreerimist ei leitud.' });
+    res.json({ registration: rows[0] });
 }));
 
 // ---------------------------------------------------------------------------

@@ -158,7 +158,7 @@ function render() {
 
     ${token && state.myRegistration && !['live','finished','archived'].includes(state.event.status)
       ? `<div class="card" style="margin-top:16px;">
-          <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Staatus: ${state.myRegistration.status === 'confirmed' ? 'Kinnitatud' : 'Registreeritud'}.</div>
+          <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Staatus: ${state.myRegistration.paid_at ? 'Kinnitatud' : 'Registreeritud'}.</div>
           <button class="btn secondary full" id="withdrawBtn">Loobu võistlusest</button>
           <div class="error-msg" id="withdrawError"></div>
         </div>` : ''}
