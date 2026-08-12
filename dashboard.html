@@ -569,7 +569,19 @@ document.getElementById('regConfirm').onclick = async () => {
       body: JSON.stringify({}),
     });
     const data = await res.json();
-    if (!res.ok) { document.getElementById('regError').textContent = data.error; return; }
+    if (!res.ok) {
+      // Kui oled sellel võistlusel juba registreeritud (nt eelmine katse
+      // tegelikult õnnestus, aga lehekülg ei jõudnud seda näidata), ära
+      // blokeeri mängijat tõrjuva veaga - liigu lihtsalt edasi.
+      if (res.status === 409) {
+        regModal.classList.remove('show');
+        if (joinEventSlug) { location.href = `/event?slug=${joinEventSlug}`; return; }
+        loadDashboard();
+        return;
+      }
+      document.getElementById('regError').textContent = data.error;
+      return;
+    }
     regModal.classList.remove('show');
     if (joinEventSlug) { location.href = `/event?slug=${joinEventSlug}`; return; }
     loadDashboard();

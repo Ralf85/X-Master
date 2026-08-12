@@ -85,10 +85,22 @@ function esc(s) {
 }
 let state = { event: null, divisions: [], rounds: [], registrations: [], myRegistration: null, poolsByRound: {} };
 
-async function load() {
+async function load(retriesLeft) {
+  if (retriesLeft === undefined) retriesLeft = 2;
   app.innerHTML = `<div class="card">Laen...</div>`;
   const res = await fetch(`/api/events/${slug}`);
-  if (!res.ok) { app.innerHTML = `<div class="card">Võistlust ei leitud.</div>`; return; }
+  if (!res.ok) {
+    if (retriesLeft > 0) {
+      // Kohe registreerimise/konto loomise järel suunatud lehed võivad
+      // esimesel katsel mõne millisekundi vanuse serveri/võrgu tõttu
+      // ebaõnnestuda - proovime lühikese viivitusega uuesti, enne kui
+      // näitame "ei leitud" viga (see segadab mängijaid asjatult).
+      await new Promise((r) => setTimeout(r, 500));
+      return load(retriesLeft - 1);
+    }
+    app.innerHTML = `<div class="card">Võistlust ei leitud. <button class="btn small" onclick="load()">Proovi uuesti</button></div>`;
+    return;
+  }
   const data = await res.json();
   state.event = data.event; state.divisions = data.divisions; state.rounds = data.rounds; state.registrations = data.registrations;
 
