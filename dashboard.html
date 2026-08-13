@@ -583,7 +583,7 @@ function renderDashboard() {
 function rowUpcoming(r) {
   const hasGuide = r.guide_text || r.guide_file_url;
   return `<div class="event-row" style="align-items:center;">
-    <div><div class="event-name">${esc(r.event_name)}</div><div class="event-meta">${fmtDate(r.start_date)} · ${esc(r.division_name)}</div></div>
+    <a href="/event?slug=${r.slug}" style="text-decoration:none; color:inherit; cursor:pointer;"><div class="event-name">${esc(r.event_name)}</div><div class="event-meta">${fmtDate(r.start_date)} · ${esc(r.division_name)}</div></a>
     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
       ${r.paid_at
         ? `<span class="badge confirmed">KINNITATUD</span>`
