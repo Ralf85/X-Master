@@ -42,7 +42,7 @@ router.post('/:playerId/reset-pin', asyncHandler(async (req, res) => {
     const pinHash = await hashPin(newPin);
 
     const { rows } = await pool.query(
-        `UPDATE players SET pin_hash = $1, recovery_code_hash = NULL
+        `UPDATE players SET pin_hash = $1, recovery_code_hash = NULL, failed_login_attempts = 0, locked_until = NULL
          WHERE id = $2
          RETURNING id, player_number, first_name, last_name`,
         [pinHash, req.params.playerId]

@@ -84,8 +84,30 @@ router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
         : await pool.query('SELECT * FROM players WHERE player_number = $1', [trimmed]);
     const player = rows[0];
 
-    if (!player || !(await comparePin(pin, player.pin_hash))) {
+    // Konto-põhine lukk (lisaks IP-põhisele rate limiter'ile) - takistab
+    // PIN-i läbiproovimist ka siis, kui ründaja kasutab mitut erinevat IP-d
+    // (nt VPN/proxy), kuna lukk on seotud konkreetse kontoga, mitte IP-ga.
+    if (player && player.locked_until && new Date(player.locked_until) > new Date()) {
+        const minutesLeft = Math.ceil((new Date(player.locked_until) - new Date()) / 60000);
+        return res.status(429).json({ error: `Liiga palju valesid katseid. Konto on ajutiselt lukus - proovi uuesti ${minutesLeft} min pärast, või taasta PIN emailiga.` });
+    }
+
+    const pinOk = player && (await comparePin(pin, player.pin_hash));
+
+    if (!pinOk) {
+        if (player) {
+            const attempts = (player.failed_login_attempts || 0) + 1;
+            const lockUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+            await pool.query(
+                'UPDATE players SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3',
+                [attempts, lockUntil, player.id]
+            );
+        }
         return res.status(401).json({ error: 'Vale Player ID/email või PIN.' });
+    }
+
+    if (player.failed_login_attempts > 0 || player.locked_until) {
+        await pool.query('UPDATE players SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1', [player.id]);
     }
 
     res.json({ player: publicPlayer(player), token: signPlayerToken(player) });
@@ -143,7 +165,7 @@ router.post('/reset-pin', recoveryLimiter, asyncHandler(async (req, res) => {
 
     const newPinHash = await hashPin(newPin);
     await pool.query(
-        'UPDATE players SET pin_hash = $1, recovery_code_hash = NULL WHERE id = $2',
+        'UPDATE players SET pin_hash = $1, recovery_code_hash = NULL, failed_login_attempts = 0, locked_until = NULL WHERE id = $2',
         [newPinHash, player.id]
     );
 
