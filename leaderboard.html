@@ -203,6 +203,7 @@
     text-align: right;
     flex-shrink: 0;
   }
+  .rank.leader { color: var(--accent); font-size: 16px; }
   .avatar {
     width: 26px; height: 26px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
@@ -468,7 +469,7 @@ function render(data) {
       body += `<tr>
         <td class="player-td">
           <div class="player-row">
-            <div class="rank">${p.thru > 0 ? i + 1 : '–'}</div>
+            <div class="rank ${p.thru > 0 && i === 0 ? 'leader' : ''}">${p.thru > 0 ? i + 1 : '–'}</div>
             ${avatarHtml}
             <div class="name-block">
               <div class="firstname">${esc(p.firstName)}</div>

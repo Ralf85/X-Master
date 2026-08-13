@@ -24,10 +24,10 @@
     font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--ink-faint);
     text-transform: uppercase; letter-spacing: 0.07em; margin: 24px 0 10px; display: flex; align-items: center; gap: 7px;
   }
-  h2::before { content: ''; width: 3px; height: 12px; background: var(--accent); border-radius: 2px; display: inline-block; opacity: 0.7; }
+  h2::before { content: ''; width: 4px; height: 14px; background: var(--accent); border-radius: 1px; display: inline-block; transform: skewX(-12deg); }
   .back-link { color: var(--ink-faint); font-size: 12px; text-decoration: none; }
   .meta { color: var(--ink-dim); font-size: 13px; margin-bottom: 4px; }
-  .status-pill { font-size: 10.5px; font-family: var(--font-display); font-weight: 700; padding: 4px 10px; border-radius: 100px; text-transform: uppercase; }
+  .status-pill { font-size: 10.5px; font-family: var(--font-display); font-weight: 700; padding: 4px 10px; border-radius: 5px; letter-spacing: 0.03em; text-transform: uppercase; }
   .status-pill.registration_open { background: rgba(79,191,130,0.15); color: var(--birdie); }
   .status-pill.registered, .status-pill.live { background: rgba(255,107,53,0.15); color: var(--accent); }
   .status-pill.confirmed { background: rgba(79,191,130,0.25); color: var(--birdie); }

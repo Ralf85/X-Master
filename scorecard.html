@@ -602,7 +602,10 @@ function renderHole() {
   let body;
   if (roundFinished) {
     body = `<div class="done-card" style="animation: doneAppear 0.4s ease;">
-      <div style="font-size:52px; line-height:1; margin-bottom:6px;">🏁</div>
+      <div style="position:relative; width:96px; height:96px; margin:0 auto 8px;">
+        <div style="position:absolute; inset:6px; background:linear-gradient(135deg, var(--accent), #e2453a); border-radius:22px; transform:rotate(-9deg); opacity:0.16;"></div>
+        <div style="position:relative; font-size:52px; line-height:96px; text-align:center;">🏁</div>
+      </div>
       <div style="font-size:19px; font-weight:700; color:var(--ink);">Ring on läbitud!</div>
       <div style="font-size:12.5px; margin-top:6px;">Kõik tulemused on salvestatud.</div>
     </div>`;

@@ -41,7 +41,7 @@
     font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--ink-faint);
     letter-spacing: 0.07em; text-transform: uppercase; margin: 30px 0 10px; display: flex; align-items: center; gap: 8px;
   }
-  h2::before { content: ''; width: 3px; height: 13px; background: var(--accent); border-radius: 2px; display: inline-block; opacity: 0.7; }
+  h2::before { content: ''; width: 4px; height: 15px; background: var(--accent); border-radius: 1px; display: inline-block; transform: skewX(-12deg); }
   p.sub { color: var(--ink-dim); font-size: 13.5px; margin: 0 0 18px; }
   label { display: block; font-size: 12px; color: var(--ink-dim); margin-bottom: 6px; margin-top: 14px; }
   input, select {
@@ -69,7 +69,7 @@
   .event-row:last-child { border-bottom: none; }
   .event-name { font-family: var(--font-display); font-weight: 600; font-size: 15px; }
   .event-meta { font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
-  .badge { font-size: 10.5px; font-family: var(--font-display); font-weight: 700; padding: 4px 9px; border-radius: 100px; letter-spacing: 0.03em; }
+  .badge { font-size: 10.5px; font-family: var(--font-display); font-weight: 700; padding: 4px 10px; border-radius: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
   .badge.registered { background: rgba(79,191,130,0.15); color: var(--birdie); }
   .badge.confirmed { background: rgba(79,191,130,0.25); color: var(--birdie); }
   .badge.unpaid { background: rgba(217,83,79,0.15); color: var(--double); }
