@@ -382,6 +382,23 @@ async function renderOverview(el) {
     </div>
 
     <div class="card">
+      <h3>🗺️ Rajakaart</h3>
+      <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-6px;">
+        Lisa rajakaardi pilt. Mängija näeb seda oma võistluse lehel ainult siis, kui märgid selle "Avalik".
+      </p>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; color:var(--ink-dim); cursor:pointer;">
+        <input type="checkbox" id="courseMapVisible" ${state.event.course_map_visible ? 'checked' : ''} style="width:auto; margin:0;">
+        Avalik (mängijad näevad rajakaarti)
+      </label>
+      ${state.event.course_map_name ? `<div style="font-size:13px; color:var(--ink-dim); margin-top:10px;">🖼️ ${esc(state.event.course_map_name)} <span data-remove-course-map style="cursor:pointer; color:var(--double); margin-left:8px; text-decoration:underline; font-size:12px;">eemalda</span></div>
+        <img src="/api/events/${state.event.id}/course-map" style="max-width:100%; border-radius:8px; margin-top:8px; border:1px solid var(--line);" onerror="this.style.display='none'">` : ''}
+      <input type="file" id="courseMapInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+      <button class="btn small secondary" id="courseMapPickBtn" style="margin-top:10px;">${state.event.course_map_name ? 'Asenda pilt' : 'Laadi pilt üles'}</button>
+      <div class="error-msg" id="courseMapError"></div>
+      <div class="ok-msg" id="courseMapMsg"></div>
+    </div>
+
+    <div class="card">
       <h3>Divisjonid</h3>
       <div class="chip-list">${state.divisions.map((d) => `<div class="chip">${esc(d.name)}${d.gender ? ` <span style="opacity:0.6; font-size:11px;">(${d.gender === 'M' ? 'mehed' : 'naised'})</span>` : (d.name === 'Mehed' || d.name === 'Naised' ? ' <span style="color:var(--bogey); font-size:11px;">⚠ soo-märgend puudub</span>' : '')}<span class="x" data-del-div="${d.id}">✕</span></div>`).join('') || '<span class="empty-note">Pole veel lisatud.</span>'}</div>
       <div class="row2" style="margin-top:12px;">
@@ -459,6 +476,38 @@ async function renderOverview(el) {
       const ok = confirm('Eemaldada juhendi dokument?');
       if (!ok) return;
       await api(`/api/admin/events/${eventId}/guide-file`, { method: 'DELETE' });
+      loadEvent();
+    };
+  }
+  document.getElementById('courseMapVisible').onchange = async (e) => {
+    try {
+      await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ courseMapVisible: e.target.checked }) });
+      document.getElementById('courseMapMsg').textContent = '✓ Salvestatud';
+      state.event.course_map_visible = e.target.checked;
+    } catch (err) { alert('Viga: ' + err.message); }
+  };
+  document.getElementById('courseMapPickBtn').onclick = () => document.getElementById('courseMapInput').click();
+  document.getElementById('courseMapInput').onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    document.getElementById('courseMapError').textContent = '';
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/course-map`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) { document.getElementById('courseMapError').textContent = data.error; return; }
+      loadEvent();
+    } catch (err) { document.getElementById('courseMapError').textContent = 'Üleslaadimine ebaõnnestus.'; }
+  };
+  const removeCourseMapEl = document.querySelector('[data-remove-course-map]');
+  if (removeCourseMapEl) {
+    removeCourseMapEl.onclick = async () => {
+      const ok = confirm('Eemaldada rajakaart?');
+      if (!ok) return;
+      await api(`/api/admin/events/${eventId}/course-map`, { method: 'DELETE' });
       loadEvent();
     };
   }

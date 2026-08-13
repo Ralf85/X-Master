@@ -40,10 +40,10 @@
     font-family: var(--font-display); font-weight: 600; font-size: 10.5px;
   }
   .reg-row .reg-name { flex: 1; }
-  .division-group { border-radius: 12px; overflow: hidden; margin-bottom: 8px; background: var(--bg-panel-2); }
+  .division-group { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 10px; background: var(--bg-panel); }
   .division-group:last-child { margin-bottom: 0; }
-  .division-header { display: flex; justify-content: space-between; align-items: center; padding: 13px 14px; cursor: pointer; transition: background 0.15s; }
-  .division-header:hover { background: rgba(255,107,53,0.06); }
+  .division-header { display: flex; justify-content: space-between; align-items: center; padding: 13px 14px; cursor: pointer; transition: background 0.15s; background: var(--bg-panel-2); }
+  .division-header:hover { background: rgba(255,107,53,0.08); }
   .division-header .label { font-family: var(--font-display); font-weight: 700; font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
   .division-header .count-chip { background: var(--bg-panel); color: var(--ink-faint); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 100px; }
   .division-header .chevron { color: var(--ink-faint); font-size: 12px; transition: transform 0.2s ease; }
@@ -178,16 +178,20 @@ function render() {
       ? `<div class="card" style="margin-top:16px;">Sa pole veel registreerunud. <a href="/dashboard" class="btn full">Registreeru dashboardil</a></div>` : ''}
 
     ${token && state.myRegistration && !['live','finished','archived'].includes(state.event.status)
-      ? `<div class="card" style="margin-top:16px;">
-          <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Staatus: ${state.myRegistration.paid_at ? 'Kinnitatud' : 'Registreeritud'}.</div>
-          <button class="btn secondary full" id="withdrawBtn">Loobu võistlusest</button>
-          <div class="error-msg" id="withdrawError"></div>
-        </div>` : ''}
+      ? `<div class="card" style="margin-top:16px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+          <span class="status-pill ${state.myRegistration.paid_at ? 'confirmed' : 'registered'}">${state.myRegistration.paid_at ? 'Kinnitatud' : 'Registreeritud'}</span>
+          <span id="withdrawBtn" style="cursor:pointer; color:var(--double); font-size:12px; text-decoration:underline; white-space:nowrap;">Loobu võistlusest</span>
+        </div>
+        <div class="error-msg" id="withdrawError"></div>` : ''}
+
+    ${state.event.course_map_visible && state.event.course_map_name ? `
+      <h2>🗺️ Rajakaart</h2>
+      <div class="card" style="padding:0; overflow:hidden;">
+        <img src="/api/events/${state.event.id}/course-map" alt="Rajakaart" style="width:100%; display:block;">
+      </div>` : ''}
 
     <h2>Registreerunud mängijad (${state.registrations.length})</h2>
-    <div class="card">
-      ${state.registrations.length === 0 ? '<div class="empty-state"><div class="icon">🥏</div><div class="text">Registreerumisi pole veel - ole esimene!</div></div>' : divisionsHtml}
-    </div>
+    ${state.registrations.length === 0 ? `<div class="card"><div class="empty-state"><div class="icon">🥏</div><div class="text">Registreerumisi pole veel - ole esimene!</div></div></div>` : divisionsHtml}
 
     ${token ? state.rounds.map(renderRoundPools).join('') : ''}
   `;
@@ -207,7 +211,7 @@ function render() {
       const body = document.getElementById(`poolsBody-${btn.dataset.togglePools}`);
       const isHidden = body.style.display !== 'block';
       body.style.display = isHidden ? 'block' : 'none';
-      btn.textContent = (isHidden ? 'Peida grupid ' : 'Näita gruppe ') + btn.dataset.count;
+      btn.textContent = (isHidden ? 'Peida grupid' : 'Näita gruppe') + ` (${btn.dataset.count})`;
     };
   });
   document.querySelectorAll('[data-join]').forEach((btn) => btn.onclick = () => joinPool(btn.dataset.join, btn.dataset.round));
@@ -220,7 +224,8 @@ async function withdrawFromEvent() {
   const ok = confirm(`Kindel, et soovid loobuda võistlusest "${state.event.name}"?\n\nSinu registreerimine ja pooli-valik selle võistluse jaoks kustutatakse.`);
   if (!ok) return;
   const btn = document.getElementById('withdrawBtn');
-  btn.disabled = true;
+  btn.style.pointerEvents = 'none';
+  btn.style.opacity = '0.5';
   btn.textContent = 'Loobun...';
   try {
     const res = await fetch(`/api/registrations/${state.myRegistration.id}`, {
@@ -229,36 +234,39 @@ async function withdrawFromEvent() {
     const data = await res.json();
     if (!res.ok) {
       document.getElementById('withdrawError').textContent = data.error;
-      btn.disabled = false;
+      btn.style.pointerEvents = 'auto';
+      btn.style.opacity = '1';
       btn.textContent = 'Loobu võistlusest';
       return;
     }
     window.location.href = '/dashboard';
   } catch (e) {
     document.getElementById('withdrawError').textContent = 'Ühendus ebaõnnestus.';
-    btn.disabled = false;
+    btn.style.pointerEvents = 'auto';
+    btn.style.opacity = '1';
     btn.textContent = 'Loobu võistlusest';
   }
 }
 
 function renderRoundPools(round) {
   const poolData = state.poolsByRound[round.id];
+  const roundLabel = round.name || `${round.round_number}. ring`;
   if (!poolData || poolData.pools.length === 0) {
-    return `<h2>${round.name || 'Round ' + round.round_number} — Poolid</h2><div class="card empty-note">Poole pole veel avatud.</div>`;
+    return `<h2>${esc(roundLabel)}</h2><div class="card empty-note">Poole pole veel avatud.</div>`;
   }
   const myPoolId = poolData.myPoolId;
   const isRegistered = !!state.myRegistration;
   const totalPlayers = poolData.pools.reduce((sum, p) => sum + p.players.length, 0);
-  const countLabel = `(${poolData.pools.length} pooli, ${totalPlayers} mängijat)`;
+  const countLabel = `${poolData.pools.length} pooli · ${totalPlayers} mängijat`;
 
   return `
-    <h2>${round.name || 'Round ' + round.round_number} — Poolid</h2>
+    <h2>${esc(roundLabel)}</h2>
     <div class="card">
       ${myPoolId ? `<a href="/scorecard?pool=${myPoolId}" class="btn full">▶ Ava minu scorecard</a>` : ''}
       ${!isRegistered ? `<div class="empty-note" style="margin-bottom:10px;">Registreeru, et endale pool valida.</div>` : ''}
-      <button class="btn secondary full" data-toggle-pools="${round.id}" data-count="${countLabel}" style="margin-top:${myPoolId ? '10px' : '0'};">
-        Näita gruppe ${countLabel}
-      </button>
+      <span data-toggle-pools="${round.id}" data-count="${countLabel}" style="display:block; text-align:center; cursor:pointer; color:var(--ink-dim); font-size:12.5px; text-decoration:underline; margin-top:${myPoolId ? '12px' : '2px'};">
+        Näita gruppe (${countLabel})
+      </span>
       <div id="poolsBody-${round.id}" style="display:none; margin-top:14px;">
         ${poolData.pools.map((p) => `
           <div class="pool-box ${p.id === myPoolId ? 'mine' : ''}">

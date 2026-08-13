@@ -30,6 +30,7 @@ router.get('/:slug', asyncHandler(async (req, res) => {
     const event = rows[0];
     if (!event) return res.status(404).json({ error: 'Võistlust ei leitud.' });
     delete event.guide_file_data; // binaarandmed ei pea event'i JSON-i sisse minema
+    delete event.course_map_data;
 
     const [divisions, parks, rounds, registrations] = await Promise.all([
         pool.query('SELECT id, name, sort_order FROM divisions WHERE event_id = $1 ORDER BY sort_order', [event.id]),
@@ -68,6 +69,24 @@ router.get('/:id/guide-file', asyncHandler(async (req, res) => {
     res.set('Content-Type', rows[0].guide_file_mimetype);
     res.set('Content-Disposition', `inline; filename="${rows[0].guide_file_name || 'juhend'}"`);
     res.send(rows[0].guide_file_data);
+}));
+
+// ---------------------------------------------------------------------------
+// GET /api/events/:id/course-map
+// Avalik - serveerib rajakaardi pildi, AGA ainult siis, kui admin on selle
+// AVALIKUKS märkinud. Kui PEIDUS, ei näita seda ka otselingi kaudu.
+// ---------------------------------------------------------------------------
+router.get('/:id/course-map', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+        'SELECT course_map_data, course_map_mimetype, course_map_name, course_map_visible FROM events WHERE id = $1',
+        [req.params.id]
+    );
+    if (!rows[0] || !rows[0].course_map_data || !rows[0].course_map_visible) {
+        return res.status(404).send('Rajakaarti ei leitud.');
+    }
+    res.set('Content-Type', rows[0].course_map_mimetype);
+    res.set('Content-Disposition', `inline; filename="${rows[0].course_map_name || 'rajakaart'}"`);
+    res.send(rows[0].course_map_data);
 }));
 
 module.exports = router;

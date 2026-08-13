@@ -2,7 +2,7 @@ const express = require('express');
 const pool = require('./db');
 const { adminAuth } = require('./adminAuth');
 const { asyncHandler } = require('./errorHandler');
-const { uploadGuideFile } = require('./uploadConfig');
+const { upload, uploadGuideFile } = require('./uploadConfig');
 
 const router = express.Router();
 router.use(adminAuth);
@@ -61,7 +61,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 router.patch('/:id', asyncHandler(async (req, res) => {
     const { name, location, startDate, endDate, registrationStart, registrationEnd,
-            registrationLimit, logoUrl, brandingTheme, status, paymentLink, guideText } = req.body;
+            registrationLimit, logoUrl, brandingTheme, status, paymentLink, guideText,
+            courseMapVisible } = req.body;
 
     const validStatuses = ['draft', 'registration_open', 'registration_closed', 'live', 'finished', 'archived'];
     if (status && !validStatuses.includes(status)) {
@@ -81,12 +82,13 @@ router.patch('/:id', asyncHandler(async (req, res) => {
             branding_theme = COALESCE($9, branding_theme),
             status = COALESCE($10, status),
             payment_link = COALESCE($11, payment_link),
-            guide_text = COALESCE($12, guide_text)
-         WHERE id = $13
+            guide_text = COALESCE($12, guide_text),
+            course_map_visible = COALESCE($13, course_map_visible)
+         WHERE id = $14
          RETURNING *`,
         [name, location, startDate, endDate, registrationStart, registrationEnd,
          registrationLimit, logoUrl, brandingTheme ? JSON.stringify(brandingTheme) : null,
-         status, paymentLink, guideText, req.params.id]
+         status, paymentLink, guideText, courseMapVisible, req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Võistlust ei leitud.' });
     res.json({ event: rows[0] });
@@ -114,6 +116,10 @@ router.use('/:id/guide-file', (err, req, res, next) => {
     if (err) return res.status(400).json({ error: err.message });
     next();
 });
+router.use('/:id/course-map', (err, req, res, next) => {
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+});
 
 router.delete('/:id/guide-file', asyncHandler(async (req, res) => {
     await pool.query(
@@ -122,6 +128,31 @@ router.delete('/:id/guide-file', asyncHandler(async (req, res) => {
         [req.params.id]
     );
     res.json({ message: 'Juhendi fail eemaldatud.' });
+}));
+
+// ---------------------------------------------------------------------------
+// Rajakaart (pilt) - läheb otse andmebaasi, sama muster mis juhendi failil.
+// ---------------------------------------------------------------------------
+router.post('/:id/course-map', upload.single('file'), asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Fail on kohustuslik.' });
+
+    const { rows } = await pool.query(
+        `UPDATE events SET
+            course_map_data = $1, course_map_mimetype = $2, course_map_name = $3
+         WHERE id = $4 RETURNING *`,
+        [req.file.buffer, req.file.mimetype, req.file.originalname, req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Võistlust ei leitud.' });
+    res.json({ event: rows[0] });
+}));
+
+router.delete('/:id/course-map', asyncHandler(async (req, res) => {
+    await pool.query(
+        `UPDATE events SET course_map_data = NULL, course_map_mimetype = NULL, course_map_name = NULL, course_map_visible = FALSE
+         WHERE id = $1`,
+        [req.params.id]
+    );
+    res.json({ message: 'Rajakaart eemaldatud.' });
 }));
 
 // ---------------------------------------------------------------------------
