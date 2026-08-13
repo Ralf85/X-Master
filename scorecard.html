@@ -93,18 +93,19 @@
   .player-card {
     background: var(--bg-panel);
     border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 18px;
+    border-radius: 18px;
+    padding: 22px 20px;
     margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(22,48,44,0.04), 0 6px 20px rgba(22,48,44,0.07);
   }
-  .player-card .avatar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .player-card .avatar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
   .avatar {
     width: 44px; height: 44px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--bg-deep);
   }
-  .player-name { font-family: var(--font-display); font-weight: 600; font-size: 17px; }
-  .player-sub { font-size: 12px; color: var(--ink-faint); }
+  .player-name { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.01em; }
+  .player-sub { font-size: 12.5px; color: var(--ink-faint); margin-top: 2px; }
 
   .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .score-btn {
@@ -626,7 +627,7 @@ function renderHole() {
     body = `
       <div class="player-card">
         <div class="avatar-row">
-          ${avatarHtml(player, '')}
+          ${avatarHtml(player, 'width:64px;height:64px;font-size:24px;')}
           <div>
             <div class="player-name">${esc(player.first_name)} ${esc(player.last_name)}</div>
             <div class="player-sub">#${player.player_number}</div>
