@@ -209,7 +209,7 @@ function renderAuth(mode, errorMsg) {
       <label>PIN (4-6 numbrit)</label><input id="newPin" type="password" inputmode="numeric">
       <label>Korda PIN-i</label><input id="newPinConfirm" type="password" inputmode="numeric">
       <label>Email</label><input id="regEmail" type="email" required>
-      <label>Telefon (valikuline)</label><input id="regPhone" type="tel" inputmode="tel">
+      <label>Telefon (valikuline)</label><input id="regPhone" type="tel" inputmode="numeric" placeholder="5xxxxxxx">
       <button class="btn full" id="doRegister">Loo konto</button>
       <div class="error-msg" id="registerError">${errorMsg || ''}</div>`;
     document.getElementById('doRegister').onclick = doRegister;

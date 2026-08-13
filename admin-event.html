@@ -337,6 +337,13 @@ async function renderOverview(el) {
 
   el.innerHTML = `
     <div class="card">
+      <h3>Nimi</h3>
+      <input id="eventNameInput" type="text" value="${esc(state.event.name)}">
+      <button class="btn full" id="saveEventName" style="margin-top:10px;">Salvesta nimi</button>
+      <div class="ok-msg" id="eventNameMsg"></div>
+    </div>
+
+    <div class="card">
       <h3>Staatus</h3>
       <select id="statusSelect">${statuses.map((s) => `<option value="${s}" ${s===state.event.status?'selected':''}>${s}</option>`).join('')}</select>
       <button class="btn full" id="saveStatus">Salvesta staatus</button>
@@ -394,6 +401,17 @@ async function renderOverview(el) {
       </div>
     </div>
   `;
+  document.getElementById('saveEventName').onclick = async () => {
+    const name = document.getElementById('eventNameInput').value.trim();
+    if (!name) { document.getElementById('eventNameMsg').textContent = ''; alert('Nimi ei tohi olla tühi.'); return; }
+    try {
+      await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+      document.getElementById('eventNameMsg').textContent = '✓ Salvestatud';
+      state.event.name = name;
+      const h1 = document.querySelector('h1');
+      if (h1) h1.textContent = name;
+    } catch (e) { document.getElementById('eventNameMsg').textContent = ''; alert('Viga: ' + e.message); }
+  };
   document.getElementById('saveStatus').onclick = async () => {
     await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ status: document.getElementById('statusSelect').value }) });
     document.getElementById('statusMsg').textContent = '✓ Salvestatud';
