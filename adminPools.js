@@ -7,6 +7,36 @@ const router = express.Router();
 router.use(adminAuth);
 
 // ---------------------------------------------------------------------------
+// POST /api/admin/pools/rounds/:roundId/recalculate-shotgun-start
+// Arvutab KÕIGI selle ringi olemasolevate poolide start-raja ümber
+// valemiga Pool N -> Start rada N (kerib ringiratast, kui poole rohkem
+// kui radu). Kasulik, kui poolid loodi enne shotgun-automaatika
+// olemasolu, või kui poole hulk muutus hiljem.
+// ---------------------------------------------------------------------------
+router.post('/rounds/:roundId/recalculate-shotgun-start', asyncHandler(async (req, res) => {
+    const { rows: holeRows } = await pool.query(
+        'SELECT id FROM holes WHERE round_id = $1', [req.params.roundId]
+    );
+    const totalHoles = holeRows.length;
+    if (totalHoles === 0) {
+        return res.status(400).json({ error: 'Sellel ringil pole veel radu lisatud.' });
+    }
+
+    const { rows: pools } = await pool.query(
+        'SELECT id, pool_number FROM pools WHERE round_id = $1', [req.params.roundId]
+    );
+
+    let updated = 0;
+    for (const p of pools) {
+        const startHole = ((p.pool_number - 1) % totalHoles) + 1;
+        await pool.query('UPDATE pools SET start_hole = $1 WHERE id = $2', [startHole, p.id]);
+        updated++;
+    }
+
+    res.json({ updated, totalHoles });
+}));
+
+// ---------------------------------------------------------------------------
 // POST /api/admin/pools/rounds/:roundId
 // Punkt 54: stardigrupi loomine
 // ---------------------------------------------------------------------------

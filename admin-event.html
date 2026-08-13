@@ -771,10 +771,18 @@ async function renderRounds(el) {
       <div class="row3">
         <div><label>Mitu poolid luua</label><input id="bulkPoolCount" type="number" placeholder="nt 12"></div>
         <div><label>Max mängijaid / pool</label><input id="bulkPoolMax" type="number" placeholder="Max mängijaid" value="4"></div>
-        <div><label>Start rada (kõigile korraga loodud poolidele)</label><input id="bulkStartHole" type="number" placeholder="Start rada" value="1"></div>
+        <div><label id="bulkStartHoleLabel">Start rada (kõigile ühesugune)</label><input id="bulkStartHole" type="number" placeholder="Start rada" value="1" disabled></div>
       </div>
-      <button class="btn full" id="bulkCreatePools" style="margin-top:8px;">Loo poolid korraga</button>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; color:var(--ink-dim); cursor:pointer;">
+        <input type="checkbox" id="shotgunAutoStart" checked style="width:auto; margin:0;">
+        Shotgun: Pool N algab automaatselt rajalt N (nt Pool 13 → Start rada 13, lõpetab rajal 12)
+      </label>
+      <button class="btn full" id="bulkCreatePools" style="margin-top:12px;">Loo poolid korraga</button>
       <div class="error-msg" id="bulkPoolStatus"></div>
+
+      <button class="btn secondary full" id="recalcShotgunBtn" style="margin-top:10px;">🔄 Arvuta KÕIGI olemasolevate poolide start-rajad ümber (shotgun Pool N → rada N)</button>
+      <p style="color:var(--ink-faint); font-size:11.5px; margin-top:6px; margin-bottom:0;">Kasuta seda, kui poolid on juba loodud (nt kõigil "Start 1"), aga soovid, et iga pool algaks oma numbriga vastavalt radalt. Kirjutab olemasolevad start-rajad üle.</p>
+      <div class="ok-msg" id="recalcShotgunMsg"></div>
 
       <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; align-items:flex-start;">
         <div style="flex:0 0 200px; min-width:180px;">
@@ -792,6 +800,22 @@ async function renderRounds(el) {
   document.getElementById('generateRange').onclick = generateRangeRows;
   document.getElementById('saveHoles').onclick = saveHoles;
   document.getElementById('bulkCreatePools').onclick = bulkCreatePools;
+  document.getElementById('recalcShotgunBtn').onclick = async () => {
+    const ok = confirm('Kindel? See kirjutab ÜLE kõigi selle ringi poolide praegused start-rajad, arvutades need automaatselt poolinumbrist (Pool N → rada N). Käsitsi tehtud erandid lähevad kaotsi.');
+    if (!ok) return;
+    const msgEl = document.getElementById('recalcShotgunMsg');
+    msgEl.textContent = 'Arvutan...';
+    try {
+      const result = await api(`/api/admin/pools/rounds/${state.selectedRoundId}/recalculate-shotgun-start`, { method: 'POST' });
+      msgEl.textContent = `✓ ${result.updated} pooli uuendatud (${result.totalHoles} raja põhjal).`;
+      renderTab();
+    } catch (e) { msgEl.textContent = ''; alert('Viga: ' + e.message); }
+  };
+  document.getElementById('shotgunAutoStart').onchange = (e) => {
+    document.getElementById('bulkStartHole').disabled = e.target.checked;
+    document.getElementById('bulkStartHoleLabel').textContent = e.target.checked
+      ? 'Start rada (automaatne shotgun)' : 'Start rada (kõigile ühesugune)';
+  };
   const saveAllBtn = document.getElementById('saveAllHoles');
   if (saveAllBtn) saveAllBtn.onclick = saveAllHoles;
   document.querySelectorAll('[data-delete-hole]').forEach((x) => {
@@ -998,9 +1022,12 @@ async function bulkCreatePools() {
   const statusEl = document.getElementById('bulkPoolStatus');
   const count = Number(document.getElementById('bulkPoolCount').value);
   const maxPlayers = Number(document.getElementById('bulkPoolMax').value) || null;
-  const startHole = Number(document.getElementById('bulkStartHole').value) || 1;
+  const shotgunAuto = document.getElementById('shotgunAutoStart').checked;
+  const fixedStartHole = Number(document.getElementById('bulkStartHole').value) || 1;
+  const totalHoles = state.holes.length;
   if (!count || count < 1) { statusEl.textContent = 'Sisesta, mitu pooli soovid luua.'; return; }
   if (count > 200) { statusEl.textContent = 'Liiga palju korraga (max 200).'; return; }
+  if (shotgunAuto && totalHoles === 0) { statusEl.textContent = 'Shotgun-automaatika jaoks tuleb enne rajad lisada (vt allpool "Rajad").'; return; }
 
   btn.disabled = true;
   btn.textContent = 'Loon poole...';
@@ -1013,14 +1040,18 @@ async function bulkCreatePools() {
   const errors = [];
   for (let i = 0; i < count; i++) {
     statusEl.textContent = `Loon poole... ${i + 1}/${count}`;
+    const poolNumber = nextNumber + i;
+    // Shotgun: Pool N algab rajalt N, suuremate poolinumbrite korral
+    // kerib ringiratast (nt kui poole on rohkem kui radu).
+    const startHole = shotgunAuto ? (((poolNumber - 1) % totalHoles) + 1) : fixedStartHole;
     try {
       await api(`/api/admin/pools/rounds/${state.selectedRoundId}`, {
         method: 'POST',
-        body: JSON.stringify({ poolNumber: nextNumber + i, maxPlayers, startHole }),
+        body: JSON.stringify({ poolNumber, maxPlayers, startHole }),
       });
       created++;
     } catch (err) {
-      errors.push(`Pool ${nextNumber + i}: ${err.message}`);
+      errors.push(`Pool ${poolNumber}: ${err.message}`);
     }
   }
 
