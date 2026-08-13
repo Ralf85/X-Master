@@ -384,17 +384,26 @@ async function renderOverview(el) {
     <div class="card">
       <h3>🗺️ Rajakaart</h3>
       <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-6px;">
-        Lisa rajakaardi pilt. Mängija näeb seda oma võistluse lehel ainult siis, kui märgid selle "Avalik".
+        Lisa rajakaardi pilt ja/või link (nt Google Maps, UDisc rada, PDF kuskil mujal). Mängija näeb neid oma võistluse lehel ainult siis, kui märgid "Avalik".
       </p>
       <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; color:var(--ink-dim); cursor:pointer;">
         <input type="checkbox" id="courseMapVisible" ${state.event.course_map_visible ? 'checked' : ''} style="width:auto; margin:0;">
         Avalik (mängijad näevad rajakaarti)
       </label>
-      ${state.event.course_map_name ? `<div style="font-size:13px; color:var(--ink-dim); margin-top:10px;">🖼️ ${esc(state.event.course_map_name)} <span data-remove-course-map style="cursor:pointer; color:var(--double); margin-left:8px; text-decoration:underline; font-size:12px;">eemalda</span></div>
-        <img src="/api/events/${state.event.id}/course-map" style="max-width:100%; border-radius:8px; margin-top:8px; border:1px solid var(--line);" onerror="this.style.display='none'">` : ''}
-      <input type="file" id="courseMapInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
-      <button class="btn small secondary" id="courseMapPickBtn" style="margin-top:10px;">${state.event.course_map_name ? 'Asenda pilt' : 'Laadi pilt üles'}</button>
-      <div class="error-msg" id="courseMapError"></div>
+
+      <label style="font-size:12px; color:var(--ink-faint); display:block; margin-top:14px;">Link</label>
+      <input id="courseMapLinkInput" type="url" placeholder="https://maps.app.goo.gl/..." value="${esc(state.event.course_map_link || '')}" style="margin-top:4px;">
+      <button class="btn small" id="saveCourseMapLink" style="margin-top:8px;">Salvesta link</button>
+      <div class="ok-msg" id="courseMapLinkMsg"></div>
+
+      <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
+        <label style="font-size:12px; color:var(--ink-faint); display:block; margin-bottom:6px;">Pilt (valikuline)</label>
+        ${state.event.course_map_name ? `<div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">🖼️ ${esc(state.event.course_map_name)} <span data-remove-course-map style="cursor:pointer; color:var(--double); margin-left:8px; text-decoration:underline; font-size:12px;">eemalda</span></div>
+          <img src="/api/events/${state.event.id}/course-map" style="max-width:100%; border-radius:8px; margin-bottom:8px; border:1px solid var(--line);" onerror="this.style.display='none'">` : ''}
+        <input type="file" id="courseMapInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+        <button class="btn small secondary" id="courseMapPickBtn">${state.event.course_map_name ? 'Asenda pilt' : 'Laadi pilt üles'}</button>
+        <div class="error-msg" id="courseMapError"></div>
+      </div>
       <div class="ok-msg" id="courseMapMsg"></div>
     </div>
 
@@ -485,6 +494,18 @@ async function renderOverview(el) {
       document.getElementById('courseMapMsg').textContent = '✓ Salvestatud';
       state.event.course_map_visible = e.target.checked;
     } catch (err) { alert('Viga: ' + err.message); }
+  };
+  document.getElementById('saveCourseMapLink').onclick = async () => {
+    let courseMapLink = document.getElementById('courseMapLinkInput').value.trim();
+    if (courseMapLink && !/^https?:\/\//i.test(courseMapLink)) {
+      courseMapLink = 'https://' + courseMapLink;
+    }
+    try {
+      await api(`/api/admin/events/${eventId}`, { method: 'PATCH', body: JSON.stringify({ courseMapLink }) });
+      document.getElementById('courseMapLinkInput').value = courseMapLink;
+      document.getElementById('courseMapLinkMsg').textContent = '✓ Salvestatud';
+      state.event.course_map_link = courseMapLink;
+    } catch (err) { document.getElementById('courseMapLinkMsg').textContent = ''; alert('Viga: ' + err.message); }
   };
   document.getElementById('courseMapPickBtn').onclick = () => document.getElementById('courseMapInput').click();
   document.getElementById('courseMapInput').onchange = async (e) => {

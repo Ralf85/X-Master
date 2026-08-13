@@ -184,10 +184,11 @@ function render() {
         </div>
         <div class="error-msg" id="withdrawError"></div>` : ''}
 
-    ${state.event.course_map_visible && state.event.course_map_name ? `
+    ${state.event.course_map_visible && (state.event.course_map_name || state.event.course_map_link) ? `
       <h2>🗺️ Rajakaart</h2>
-      <div class="card" style="padding:0; overflow:hidden;">
-        <img src="/api/events/${state.event.id}/course-map" alt="Rajakaart" style="width:100%; display:block;">
+      <div class="card">
+        ${state.event.course_map_name ? `<img src="/api/events/${state.event.id}/course-map" alt="Rajakaart" style="width:100%; display:block; border-radius:10px;${state.event.course_map_link ? ' margin-bottom:10px;' : ''}">` : ''}
+        ${state.event.course_map_link ? `<a href="${esc(state.event.course_map_link)}" target="_blank" rel="noopener" class="btn full" style="text-align:center;">🗺️ Ava rajakaart</a>` : ''}
       </div>` : ''}
 
     <h2>Registreerunud mängijad (${state.registrations.length})</h2>
