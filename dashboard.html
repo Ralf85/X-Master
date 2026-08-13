@@ -486,7 +486,7 @@ function renderDashboard() {
           <div style="flex:1;">
             <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px;">Profiilipilt (PNG/JPG/WEBP, max 5MB)</div>
             <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
-            <button class="btn small" id="avatarPickBtn">Laadi pilt üles</button>
+            <button class="btn small secondary" id="avatarPickBtn">Laadi pilt üles</button>
             ${state.player.profile_image_url ? `<button class="btn small secondary" id="avatarRemoveBtn" style="margin-left:6px;">Eemalda</button>` : ''}
             <div class="error-msg" id="avatarError"></div>
           </div>
