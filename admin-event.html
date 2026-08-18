@@ -368,7 +368,8 @@ async function renderOverview(el) {
         Mängijad näevad oma "Minu konto" lehel "Juhend" nuppu.
       </p>
       <label style="font-size:12px; color:var(--ink-faint); display:block; margin-top:8px;">Tekst</label>
-      <textarea id="guideTextInput" placeholder="nt Start kell 10:00, kogunemine parklas..." style="width:100%; min-height:90px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:10px 12px; font-family:var(--font-body); font-size:14px; resize:vertical; margin-top:4px;">${esc(state.event.guide_text || '')}</textarea>
+      <p style="color:var(--bogey); font-size:11px; margin:2px 0 0;">⚠ Ära lohista siia faili - kasuta selle jaoks allpool "Laadi fail üles" nuppu.</p>
+      <textarea id="guideTextInput" placeholder="nt Start kell 10:00, kogunemine parklas..." style="width:100%; min-height:90px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:10px 12px; font-family:var(--font-body); font-size:14px; resize:vertical; margin-top:4px;" ondrop="event.preventDefault(); alert('Faile ei saa siia lohistada - kasuta allpool \'Laadi fail üles\' nuppu.');" ondragover="event.preventDefault();">${esc(state.event.guide_text || '')}</textarea>
       <button class="btn small" id="saveGuideText" style="margin-top:8px;">Salvesta tekst</button>
       <div class="ok-msg" id="guideTextMsg"></div>
 
