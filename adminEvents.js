@@ -62,7 +62,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.patch('/:id', asyncHandler(async (req, res) => {
     const { name, location, startDate, endDate, registrationStart, registrationEnd,
             registrationLimit, logoUrl, brandingTheme, status, paymentLink, guideText,
-            courseMapVisible, courseMapLink } = req.body;
+            courseMapVisible, courseMapLink, entryFee } = req.body;
 
     const validStatuses = ['draft', 'registration_open', 'registration_closed', 'live', 'finished', 'archived'];
     if (status && !validStatuses.includes(status)) {
@@ -84,12 +84,13 @@ router.patch('/:id', asyncHandler(async (req, res) => {
             payment_link = COALESCE($11, payment_link),
             guide_text = COALESCE($12, guide_text),
             course_map_visible = COALESCE($13, course_map_visible),
-            course_map_link = COALESCE($14, course_map_link)
-         WHERE id = $15
+            course_map_link = COALESCE($14, course_map_link),
+            entry_fee = COALESCE($15, entry_fee)
+         WHERE id = $16
          RETURNING *`,
         [name, location, startDate, endDate, registrationStart, registrationEnd,
          registrationLimit, logoUrl, brandingTheme ? JSON.stringify(brandingTheme) : null,
-         status, paymentLink, guideText, courseMapVisible, courseMapLink, req.params.id]
+         status, paymentLink, guideText, courseMapVisible, courseMapLink, entryFee, req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Võistlust ei leitud.' });
     res.json({ event: rows[0] });
