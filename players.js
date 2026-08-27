@@ -7,6 +7,7 @@ const { isValidPinFormat, hashPin, comparePin, generateRecoveryCode } = require(
 const { upload } = require('./uploadConfig');
 const { loginLimiter, recoveryLimiter, registerLimiter } = require('./rateLimiters');
 const { sendRecoveryEmail } = require('./email');
+const bagTag = require('./bagTag');
 
 const router = express.Router();
 
@@ -55,15 +56,27 @@ router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
 
     const pinHash = await hashPin(pin);
 
-    const { rows } = await pool.query(
-        `INSERT INTO players
-            (player_number, first_name, last_name, pin_hash, pdga_number, country, email, phone, birth_date, gender)
-         VALUES (nextval('player_number_seq'), $1, $2, $3, $4, $5, $6, $7, $8, $9)
-         RETURNING *`,
-        [firstName, lastName, pinHash, pdgaNumber || null, country || null, email || null, phone || null, birthDate, gender]
-    );
+    const client = await pool.connect();
+    let player;
+    try {
+        await client.query('BEGIN');
+        const { rows } = await client.query(
+            `INSERT INTO players
+                (player_number, first_name, last_name, pin_hash, pdga_number, country, email, phone, birth_date, gender)
+             VALUES (nextval('player_number_seq'), $1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING *`,
+            [firstName, lastName, pinHash, pdgaNumber || null, country || null, email || null, phone || null, birthDate, gender]
+        );
+        player = rows[0];
+        await bagTag.assignNewPlayerNumber(client, player.id, gender);
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
 
-    const player = rows[0];
     res.status(201).json({ player: publicPlayer(player), token: signPlayerToken(player) });
 }));
 

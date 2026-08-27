@@ -3,6 +3,7 @@ const pool = require('./db');
 const { adminAuth } = require('./adminAuth');
 const { asyncHandler } = require('./errorHandler');
 const { upload, uploadGuideFile } = require('./uploadConfig');
+const bagTag = require('./bagTag');
 
 const router = express.Router();
 router.use(adminAuth);
@@ -371,6 +372,37 @@ router.patch('/holes/:holeId', asyncHandler(async (req, res) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Rada ei leitud.' });
     res.json({ hole: rows[0] });
+}));
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/events/:id/recompute-bagtag
+// Arvutab bag tag numbrid ümber selle event'i kõigi divisjonide jaoks,
+// vastavalt lõpetanud mängijate tulemustele. Käivita KÄSITSI, kui
+// võistlus on päriselt läbi (kõik ringid lõpetatud).
+// ---------------------------------------------------------------------------
+router.post('/:id/recompute-bagtag', asyncHandler(async (req, res) => {
+    const { rows: divisions } = await pool.query(
+        'SELECT id, name, gender FROM divisions WHERE event_id = $1', [req.params.id]
+    );
+
+    const client = await pool.connect();
+    let results = [];
+    try {
+        await client.query('BEGIN');
+        for (const div of divisions) {
+            if (!div.gender) continue;
+            const result = await bagTag.recomputeEventDivision(client, req.params.id, div.id);
+            results.push({ division: div.name, updated: result.updated });
+        }
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+
+    res.json({ results });
 }));
 
 module.exports = router;

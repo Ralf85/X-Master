@@ -3,6 +3,7 @@ const pool = require('./db');
 const { adminAuth } = require('./adminAuth');
 const { asyncHandler } = require('./errorHandler');
 const { hashPin } = require('./pin');
+const bagTag = require('./bagTag');
 
 const router = express.Router();
 router.use(adminAuth);
@@ -120,6 +121,10 @@ router.delete('/:playerId', asyncHandler(async (req, res) => {
             [req.params.playerId]
         );
         await client.query('DELETE FROM registrations WHERE player_id = $1', [req.params.playerId]);
+
+        // Bag tag: sulge auk, mis selle mängija numbri kustutamisel tekiks -
+        // kõik kõrgema numbriga mängijad (sama soo sees) nihkuvad ühe võrra allapoole.
+        await bagTag.closeGapBeforeRemoval(client, req.params.playerId);
 
         const { rows } = await client.query('DELETE FROM players WHERE id = $1 RETURNING id', [req.params.playerId]);
 

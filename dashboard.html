@@ -473,7 +473,10 @@ function renderDashboard() {
   app.innerHTML = `
     <div class="top-user">
       <div class="who">Tere, <strong style="color:var(--ink)">${esc(state.player.first_name)}</strong> · #${state.player.player_number}</div>
-      <div class="logout-link" id="logoutBtn">Logi välja</div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <a href="/bagtag" style="color:var(--ink-faint); font-size:13px; text-decoration:none;">🏷️ Bag Tag</a>
+        <div class="logout-link" id="logoutBtn">Logi välja</div>
+      </div>
     </div>
 
     <div class="card">
@@ -525,7 +528,7 @@ function renderDashboard() {
           }
           <div style="flex:1; min-width:0;">
             <div style="font-family:var(--font-display); font-weight:600; font-size:16px; color:var(--ink);">${esc(state.player.first_name)} ${esc(state.player.last_name)}</div>
-            ${!state.player.gender || !state.player.birth_date ? `<div style="color:var(--bogey); font-size:11.5px; margin-top:3px;">⚠ Sünniaeg/sugu puudub</div>` : `<div style="color:var(--ink-faint); font-size:11.5px; margin-top:3px;">#${state.player.player_number}</div>`}
+            ${!state.player.gender || !state.player.birth_date ? `<div style="color:var(--bogey); font-size:11.5px; margin-top:3px;">⚠ Sünniaeg/sugu puudub</div>` : `<div style="color:var(--ink-faint); font-size:11.5px; margin-top:3px; display:flex; align-items:center; gap:6px;">#${state.player.player_number}${state.player.bag_tag_number ? `<a href="/bagtag" style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:${state.player.gender === 'N' ? '#d6417f' : '#3b6fd6'}; color:#fff; font-size:10px; font-weight:700; font-family:var(--font-display); text-decoration:none;">${state.player.bag_tag_number}</a>` : ''}</div>`}
           </div>
           <button class="btn small secondary" id="toggleProfileEdit" style="flex-shrink:0;">Muuda profiili</button>
         </div>

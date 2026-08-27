@@ -11,6 +11,7 @@ const eventRoutes = require('./events');
 const adminEventRoutes = require('./adminEvents');
 const registrationRoutes = require('./registrations');
 const paymentsLhvRoutes = require('./paymentsLhv');
+const bagTagRoutes = require('./bagTagRoutes');
 const adminRegistrationRoutes = require('./adminRegistrations');
 const adminPlayerRoutes = require('./adminPlayers');
 const adminAnnouncementRoutes = require('./adminAnnouncements');
@@ -64,6 +65,10 @@ app.get('/leaderboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'leaderboard.html'));
 });
 
+app.get('/bagtag', (req, res) => {
+    res.sendFile(path.join(__dirname, 'bagtag.html'));
+});
+
 app.get('/scorecard', (req, res) => {
     res.sendFile(path.join(__dirname, 'scorecard.html'));
 });
@@ -110,6 +115,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/admin/events', adminEventRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/payments', paymentsLhvRoutes);
+app.use('/api/bagtag', bagTagRoutes);
 app.use('/api/admin/registrations', adminRegistrationRoutes);
 app.use('/api/admin/players', adminPlayerRoutes);
 app.use('/api/admin/announcements', adminAnnouncementRoutes);

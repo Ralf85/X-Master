@@ -17,6 +17,7 @@ router.get('/event/:eventId', asyncHandler(async (req, res) => {
     let query = `
         SELECT r.id, r.status, r.registered_at, r.confirmed_at, r.bank_paid_at, r.stebby_paid_at,
                p.id AS player_id, p.player_number, p.first_name, p.last_name, p.email, p.phone,
+               p.gender, p.bag_tag_number,
                d.name AS division_name
         FROM registrations r
         JOIN players p ON p.id = r.player_id

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bag Tag - Edetabel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #7EBAB5;
+    --bg-panel: #ffffff;
+    --bg-panel-2: #dceeec;
+    --ink: #16302c;
+    --ink-dim: #3f615c;
+    --ink-faint: #6f8f8a;
+    --line: rgba(22, 48, 44, 0.14);
+    --accent: #ff6b35;
+    --birdie: #2e9d5c;
+    --double: #c94444;
+    --tag-blue: #3b6fd6;
+    --tag-pink: #d6417f;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg-deep);
+    color: var(--ink);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 22px 16px 60px; }
+  .back-link { color: var(--ink-faint); font-size: 12px; text-decoration: none; display: inline-block; margin-bottom: 10px; }
+  h1 { font-family: var(--font-display); font-weight: 700; font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .subtitle { color: var(--ink-dim); font-size: 13.5px; margin: 0 0 18px; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tab {
+    flex: 1; text-align: center; padding: 10px; border-radius: 10px; cursor: pointer;
+    font-family: var(--font-display); font-weight: 700; font-size: 13.5px;
+    background: var(--bg-panel); color: var(--ink-faint); border: 1px solid var(--line);
+  }
+  .tab.active.men { background: var(--tag-blue); color: #fff; border-color: var(--tag-blue); }
+  .tab.active.women { background: var(--tag-pink); color: #fff; border-color: var(--tag-pink); }
+
+  .search-box {
+    width: 100%; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg-panel); color: var(--ink); font-family: var(--font-body); font-size: 14px;
+    margin-bottom: 14px;
+  }
+
+  .card { background: var(--bg-panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 1px 2px rgba(22,48,44,0.04), 0 4px 16px rgba(22,48,44,0.06); }
+  .row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .row:last-child { border-bottom: none; }
+  .row.me { background: rgba(255,107,53,0.08); }
+  .row.rank1 { background: linear-gradient(90deg, rgba(242,201,76,0.18), transparent); }
+
+  .tag-num {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 15px; color: #fff;
+  }
+  .tag-num.men { background: var(--tag-blue); }
+  .tag-num.women { background: var(--tag-pink); }
+  .row.rank1 .tag-num { box-shadow: 0 0 0 3px rgba(242,201,76,0.5); }
+
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; object-fit: cover;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 12px; color: #fff;
+  }
+  .name-block { flex: 1; min-width: 0; }
+  .name { font-family: var(--font-display); font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .last-played { font-size: 11px; color: var(--ink-faint); }
+  .trend { font-family: var(--font-display); font-weight: 700; font-size: 12.5px; flex-shrink: 0; min-width: 36px; text-align: right; }
+  .trend.up { color: var(--birdie); }
+  .trend.down { color: var(--double); }
+  .trend.flat { color: var(--ink-faint); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--ink-faint); }
+  .state-message { text-align: center; padding: 40px 20px; color: var(--ink-dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="/dashboard" class="back-link">← Minu konto</a>
+  <h1>🏷️ Bag Tag</h1>
+  <p class="subtitle">Pingerida uueneb võistlustulemuste ja mitteaktiivsuse põhjal.</p>
+
+  <div class="tabs">
+    <div class="tab men active" id="tabMen">🔵 Mehed</div>
+    <div class="tab women" id="tabWomen">🩷 Naised</div>
+  </div>
+
+  <input type="text" class="search-box" id="searchInput" placeholder="Otsi nime järgi...">
+
+  <div id="content"><div class="state-message">Laen...</div></div>
+</div>
+
+<script>
+let currentGender = 'M';
+let currentData = [];
+let myPlayerId = null;
+const token = localStorage.getItem('dg_player_token');
+
+function esc(s) {
+  const div = document.createElement('div');
+  div.textContent = s ?? '';
+  return div.innerHTML;
+}
+
+function fmtLastPlayed(dateStr) {
+  if (!dateStr) return 'Pole veel mänginud';
+  const d = new Date(dateStr);
+  return 'Viimati: ' + d.toLocaleDateString('et-EE', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function avatarColor(name) {
+  const colors = ['#4fbf82', '#f2c94c', '#ff6b35', '#5b9bd5', '#c77dff', '#e8974a'];
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) % colors.length;
+  return colors[Math.abs(h)];
+}
+
+function render() {
+  const content = document.getElementById('content');
+  const query = document.getElementById('searchInput').value.trim().toLowerCase();
+  const filtered = currentData.filter((p) =>
+    (p.firstName + ' ' + p.lastName).toLowerCase().includes(query)
+  );
+
+  if (filtered.length === 0) {
+    content.innerHTML = `<div class="card"><div class="empty-state">${currentData.length === 0 ? 'Numbreid pole veel jagatud.' : 'Ei leitud kedagi selle nimega.'}</div></div>`;
+    return;
+  }
+
+  const genderClass = currentGender === 'M' ? 'men' : 'women';
+
+  content.innerHTML = `<div class="card">${filtered.map((p) => {
+    const isMe = p.playerId === myPlayerId;
+    const isRank1 = p.number === 1;
+    const trendClass = p.trend > 0 ? 'up' : p.trend < 0 ? 'down' : 'flat';
+    const trendLabel = p.trend > 0 ? `▲${p.trend}` : p.trend < 0 ? `▼${Math.abs(p.trend)}` : '–';
+    const initials = (p.firstName?.[0] || '') + (p.lastName?.[0] || '');
+    const avatar = p.profileImageUrl
+      ? `<img src="${p.profileImageUrl}" class="avatar" alt="">`
+      : `<div class="avatar" style="background:${avatarColor(p.firstName + p.lastName)};">${esc(initials)}</div>`;
+
+    return `<div class="row ${isMe ? 'me' : ''} ${isRank1 ? 'rank1' : ''}">
+      <div class="tag-num ${genderClass}">${p.number}</div>
+      ${avatar}
+      <div class="name-block">
+        <div class="name">${esc(p.firstName)} ${esc(p.lastName)}${isMe ? ' (sina)' : ''}</div>
+        <div class="last-played">${fmtLastPlayed(p.lastPlayedAt)}</div>
+      </div>
+      <div class="trend ${trendClass}">${trendLabel}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+async function loadRanking() {
+  document.getElementById('content').innerHTML = '<div class="state-message">Laen...</div>';
+  try {
+    const res = await fetch(`/api/bagtag/ranking?gender=${currentGender}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Viga');
+    currentData = data.ranking;
+    render();
+  } catch (e) {
+    document.getElementById('content').innerHTML = `<div class="state-message">Ühendus ebaõnnestus.</div>`;
+  }
+}
+
+async function loadMe() {
+  if (!token) return;
+  try {
+    const res = await fetch('/api/players/me', { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) {
+      const data = await res.json();
+      myPlayerId = data.player.id;
+    }
+  } catch (e) { /* pole kriitiline, jäta lihtsalt esiletõstmine ära */ }
+}
+
+document.getElementById('tabMen').onclick = () => {
+  currentGender = 'M';
+  document.getElementById('tabMen').classList.add('active');
+  document.getElementById('tabWomen').classList.remove('active');
+  loadRanking();
+};
+document.getElementById('tabWomen').onclick = () => {
+  currentGender = 'N';
+  document.getElementById('tabWomen').classList.add('active');
+  document.getElementById('tabMen').classList.remove('active');
+  loadRanking();
+};
+document.getElementById('searchInput').oninput = render;
+
+(async () => {
+  await loadMe();
+  await loadRanking();
+})();
+</script>
+</body>
+</html>

@@ -627,7 +627,7 @@ function renderRegistrationsTable(el) {
         ${sorted.map((r) => `
           <tr>
             <td><input type="checkbox" class="regCheckbox" data-reg-id="${r.id}" ${selectedRegIds.has(r.id) ? 'checked' : ''}></td>
-            <td>${esc(r.first_name)} ${esc(r.last_name)}<br><span style="color:var(--ink-faint);font-size:11px;">#${r.player_number}</span></td>
+            <td>${esc(r.first_name)} ${esc(r.last_name)} ${r.bag_tag_number ? `<span style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:${r.gender === 'N' ? '#d6417f' : '#3b6fd6'}; color:#fff; font-size:10px; font-weight:700; font-family:var(--font-display); vertical-align:middle;">${r.bag_tag_number}</span>` : ''}<br><span style="color:var(--ink-faint);font-size:11px;">#${r.player_number}</span></td>
             <td>${r.division_name}</td>
             <td><span class="status-pill ${r.status}">${r.status === 'confirmed' ? 'Kinnitatud' : r.status === 'registered' ? 'Registreeritud' : r.status}</span></td>
             <td>${paymentCell(r, 'bank')}</td>
@@ -654,8 +654,29 @@ function renderRegistrationsTable(el) {
       <button class="btn full" id="addPlayerBtn" style="margin-top:8px;">Lisa mängija</button>
       <div class="error-msg" id="apError"></div>
     </div>
+
+    <div class="card">
+      <h3>🏷️ Bag Tag</h3>
+      <p style="color:var(--ink-faint); font-size:12.5px; margin-top:-6px;">
+        Kui see võistlus on TÄIELIKULT läbi (kõik ringid lõpetatud), arvuta lõpetanud mängijate bag tag numbrid ümber vastavalt tulemusele.
+      </p>
+      <a href="/bagtag" target="_blank" style="font-size:12.5px; color:var(--ink-dim); text-decoration:underline;">Vaata praegust pingerida →</a>
+      <button class="btn secondary full" id="recomputeBagTagBtn" style="margin-top:10px;">🔄 Arvuta bag tag numbrid selle võistluse põhjal</button>
+      <div class="ok-msg" id="bagTagMsg"></div>
+    </div>
   `;
   document.getElementById('regSortSelect').onchange = (e) => { regSortMode = e.target.value; renderRegistrationsTable(el); };
+  document.getElementById('recomputeBagTagBtn').onclick = async () => {
+    const ok = confirm('Kindel? See kirjutab üle lõpetanud mängijate bag tag numbrid vastavalt selle võistluse tulemustele. Mitteosalejate numbrid ei muutu.');
+    if (!ok) return;
+    const msgEl = document.getElementById('bagTagMsg');
+    msgEl.textContent = 'Arvutan...';
+    try {
+      const result = await api(`/api/admin/events/${eventId}/recompute-bagtag`, { method: 'POST' });
+      const summary = result.results.map((r) => `${r.division}: ${r.updated}`).join(', ');
+      msgEl.textContent = `✓ Uuendatud (${summary})`;
+    } catch (e) { msgEl.textContent = ''; alert('Viga: ' + e.message); }
+  };
   document.querySelectorAll('[data-confirm]').forEach((btn) => {
     btn.onclick = async () => { await api(`/api/admin/registrations/${btn.dataset.confirm}`, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) }); renderRegistrations(el); };
   });
