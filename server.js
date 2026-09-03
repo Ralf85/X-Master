@@ -69,6 +69,10 @@ app.get('/bagtag', (req, res) => {
     res.sendFile(path.join(__dirname, 'bagtag.html'));
 });
 
+app.get('/about', (req, res) => {
+    res.sendFile(path.join(__dirname, 'about.html'));
+});
+
 app.get('/scorecard', (req, res) => {
     res.sendFile(path.join(__dirname, 'scorecard.html'));
 });
