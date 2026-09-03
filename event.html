@@ -162,7 +162,7 @@ function render() {
         <span class="chevron" id="chev-d${idx}">▾</span>
       </div>
       <div class="division-body" id="divBody-d${idx}">
-        ${regs.map((r) => `<div class="reg-row"><div class="mini-avatar">${(r.first_name?.[0]||'')+(r.last_name?.[0]||'')}</div><span class="reg-name">${esc(r.first_name)} ${esc(r.last_name)}</span></div>`).join('')}
+        ${regs.map((r) => `<div class="reg-row"><div class="mini-avatar">${(r.first_name?.[0]||'')+(r.last_name?.[0]||'')}</div><span class="reg-name">${esc(r.first_name)} ${esc(r.last_name)}</span>${r.bag_tag_number ? `<span style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:${r.gender === 'N' ? '#d6417f' : '#3b6fd6'}; color:#fff; font-size:10px; font-weight:700; font-family:var(--font-display); flex-shrink:0;">${r.bag_tag_number}</span>` : ''}</div>`).join('')}
       </div>
     </div>`).join('');
 

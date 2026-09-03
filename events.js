@@ -37,7 +37,7 @@ router.get('/:slug', asyncHandler(async (req, res) => {
         pool.query('SELECT id, name, color, icon, sponsor, sort_order FROM parks WHERE event_id = $1 ORDER BY sort_order', [event.id]),
         pool.query('SELECT id, round_number, name, round_date, status FROM rounds WHERE event_id = $1 ORDER BY round_number', [event.id]),
         pool.query(
-            `SELECT r.id, r.status, p.first_name, p.last_name, d.name AS division_name
+            `SELECT r.id, r.status, p.first_name, p.last_name, p.gender, p.bag_tag_number, d.name AS division_name
              FROM registrations r
              JOIN players p ON p.id = r.player_id
              JOIN divisions d ON d.id = r.division_id
